@@ -1,5 +1,8 @@
 package com.tda.core;
 
+import com.tda.core.analysis.pattern.Finding;
+import com.tda.core.analysis.pattern.PatternContext;
+import com.tda.core.analysis.pattern.PatternLibrary;
 import com.tda.core.analysis.series.Baseline;
 import com.tda.core.analysis.series.PersistentLockHolders;
 import com.tda.core.analysis.series.PoolTrend;
@@ -55,22 +58,44 @@ public final class AnalysisEngine {
         root.put("options", options.toJson());
 
         PoolGrouper pools = new PoolGrouper(options.poolPatterns);
-        List<Object> dumps = new ArrayList<>();
+
+        List<LockGraph> graphs = new ArrayList<>();
+        List<List<DeadlockDetector.Cycle>> deadlocksPerDump = new ArrayList<>();
         for (ThreadDump d : series.dumps()) {
-            dumps.add(analyzeDump(d, pools, topH));
+            LockGraph g = LockGraph.build(d);
+            graphs.add(g);
+            deadlocksPerDump.add(new DeadlockDetector().detect(d, g));
+        }
+
+        List<Object> dumps = new ArrayList<>();
+        for (int i = 0; i < series.size(); i++) {
+            dumps.add(analyzeDump(series.get(i), pools, topH, graphs.get(i), deadlocksPerDump.get(i)));
         }
         root.put("dumps", dumps);
-        root.put("series", analyzeSeries(series, pools, baselineDoc));
+
+        SeriesResults sr = analyzeSeries(series, pools, baselineDoc);
+        root.put("series", sr.json);
+
+        PatternContext ctx = new PatternContext(series, graphs, deadlocksPerDump,
+                sr.stuck, sr.holders, sr.trends, options);
+        List<Object> findings = new ArrayList<>();
+        for (Finding f : new PatternLibrary().run(ctx)) findings.add(f.toJson());
+        root.put("findings", findings);
         return root;
     }
+
+    private record SeriesResults(Map<String, Object> json,
+                                 List<StuckThreadDetector.Stuck> stuck,
+                                 List<PersistentLockHolders.Holder> holders,
+                                 List<PoolTrend.Trend> trends) {}
 
     /** Distills this series into a baseline document for later {@code --baseline} diffs. */
     public Map<String, Object> buildBaseline(DumpSeries series) {
         return new Baseline().build(series, new PoolGrouper(options.poolPatterns), options.topStacks);
     }
 
-    private Map<String, Object> analyzeSeries(DumpSeries series, PoolGrouper pools,
-                                              Map<String, Object> baselineDoc) {
+    private SeriesResults analyzeSeries(DumpSeries series, PoolGrouper pools,
+                                        Map<String, Object> baselineDoc) {
         Map<String, Object> s = new LinkedHashMap<>();
         SeriesIndex index = SeriesIndex.build(series);
 
@@ -94,9 +119,9 @@ public final class AnalysisEngine {
         }
         s.put("stuckThreads", stuckRows);
 
-        List<PersistentLockHolders.Holder> holders = new PersistentLockHolders().detect(series, 2);
+        List<PersistentLockHolders.Holder> holderList = new PersistentLockHolders().detect(series, 2);
         List<Object> holderRows = new ArrayList<>();
-        for (PersistentLockHolders.Holder h : holders) {
+        for (PersistentLockHolders.Holder h : holderList) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("holder", h.holderName());
             row.put("lockClass", h.lockClass());
@@ -110,8 +135,9 @@ public final class AnalysisEngine {
         }
         s.put("persistentLockHolders", holderRows);
 
+        List<PoolTrend.Trend> trendList = new PoolTrend().analyze(series, pools, options.leakMinGrowth);
         List<Object> trendRows = new ArrayList<>();
-        for (PoolTrend.Trend t : new PoolTrend().analyze(series, pools, options.leakMinGrowth)) {
+        for (PoolTrend.Trend t : trendList) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("pool", t.pool());
             row.put("counts", t.counts());
@@ -155,7 +181,7 @@ public final class AnalysisEngine {
         if (baselineDoc != null) {
             s.put("baselineDiff", new Baseline().diff(series, pools, options.topStacks, baselineDoc));
         }
-        return s;
+        return new SeriesResults(s, stuck, holderList, trendList);
     }
 
     private static void flag(Set<String> flagged, Map<String, Set<String>> reasons,
@@ -164,7 +190,8 @@ public final class AnalysisEngine {
         reasons.computeIfAbsent(key, k -> new LinkedHashSet<>()).add(reason);
     }
 
-    private Map<String, Object> analyzeDump(ThreadDump d, PoolGrouper pools, List<TopHSample> topH) {
+    private Map<String, Object> analyzeDump(ThreadDump d, PoolGrouper pools, List<TopHSample> topH,
+                                            LockGraph graph, List<DeadlockDetector.Cycle> cycles) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("index", d.indexInSeries());
         m.put("source", d.sourceName());
@@ -207,7 +234,6 @@ public final class AnalysisEngine {
         }
         m.put("topStacks", stackGroups);
 
-        LockGraph graph = LockGraph.build(d);
         List<Object> locks = new ArrayList<>();
         for (LockGraph.Contention c : graph.contendedLocks()) {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -234,7 +260,7 @@ public final class AnalysisEngine {
         m.put("topBlockers", blockers);
 
         List<Object> deadlocks = new ArrayList<>();
-        for (DeadlockDetector.Cycle c : new DeadlockDetector().detect(d, graph)) {
+        for (DeadlockDetector.Cycle c : cycles) {
             deadlocks.add(Map.of("threads", c.threadNames(), "source", c.source()));
         }
         m.put("deadlocks", deadlocks);

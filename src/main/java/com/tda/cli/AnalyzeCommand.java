@@ -9,6 +9,7 @@ import com.tda.core.model.ThreadDump;
 import com.tda.core.model.TopHSample;
 import com.tda.core.parse.DumpSetLoader;
 import com.tda.core.parse.TopHParser;
+import com.tda.report.HtmlReport;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -30,6 +31,10 @@ public class AnalyzeCommand implements Callable<Integer> {
 
     @Option(names = "--json", paramLabel = "<file>", description = "Write the full analysis as JSON.")
     Path jsonOut;
+
+    @Option(names = "--html", paramLabel = "<file>",
+            description = "Write a self-contained HTML report (charts + data inlined; works offline).")
+    Path htmlOut;
 
     @Option(names = "--top", paramLabel = "<file>",
             description = "top -H output captured alongside the dumps; joined on nid for per-thread CPU.")
@@ -91,6 +96,11 @@ public class AnalyzeCommand implements Callable<Integer> {
         if (jsonOut != null) {
             Files.writeString(jsonOut, Json.write(result), StandardCharsets.UTF_8);
             System.out.println("JSON written to " + jsonOut);
+        }
+        if (htmlOut != null) {
+            String title = "Thread Dump Analysis — " + files.get(0).getFileName();
+            Files.writeString(htmlOut, new HtmlReport().render(result, title), StandardCharsets.UTF_8);
+            System.out.println("HTML report written to " + htmlOut);
         }
         printSummary(series, result);
         return 0;
