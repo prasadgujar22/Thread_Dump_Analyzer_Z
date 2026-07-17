@@ -216,6 +216,7 @@ public final class HotSpotParser {
         if (tail) return; // heap summary / GC lines after the dump body
         // Known harmless section headers we deliberately skip
         if (trimmed.startsWith("Threads class SMR info") || trimmed.startsWith("_java_thread_list")
+                || trimmed.equals("}")
                 || trimmed.equals("No compile task") || trimmed.startsWith("Compiling:")
                 || trimmed.startsWith("Heap") || looksLikeHeapLine(trimmed)
                 || trimmed.matches("(0x[0-9a-fA-F]+|\\d+)(,\\s*(0x[0-9a-fA-F]+|\\d+))*,?\\s*}?")) {
