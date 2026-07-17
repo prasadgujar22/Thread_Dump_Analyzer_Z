@@ -11,6 +11,9 @@ network calls of any kind. Dumps contain production data; they never leave the m
 
 ## Quick start
 
+A prebuilt jar is committed at **`dist/tda.jar`** — copy that one file to any machine with a
+Java 17+ runtime and it works, air-gapped included. To build it yourself:
+
 ```bash
 mvn package                     # -> target/tda.jar (the only artifact you need)
 
