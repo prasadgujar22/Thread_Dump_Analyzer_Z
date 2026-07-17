@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TDA — Thread Dump Analyzer</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <h1>Thread Dump Analyzer</h1>
+  <p class="sub">Everything runs on this machine — dumps never leave the JVM serving this page.</p>
+
+  <div class="card">
+    <div id="drop" class="dropzone">
+      Drop dump files here (jstack / jcmd output, or server logs with embedded dumps),<br>
+      or <button id="pick" type="button">choose files</button>
+      <input id="files" type="file" multiple hidden>
+      <div id="filelist" class="filelist"></div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <h3>top -H output (optional)</h3>
+        <p class="sub">Paste <span class="mono">top -H -b -n 1 -p &lt;pid&gt;</span> captured alongside the dumps; joined on nid for per-thread CPU.</p>
+        <textarea id="toph" spellcheck="false" placeholder="   PID USER      PR  NI ...  %CPU ..."></textarea>
+      </div>
+      <div>
+        <h3>Options</h3>
+        <div class="controls">
+          <label>stuck after K dumps <input id="stuckK" type="number" value="3" min="2" style="width:64px"></label>
+          <label>fingerprint depth <input id="fpDepth" type="number" value="8" min="1" style="width:64px"></label>
+        </div>
+        <h3>Custom pool patterns (optional)</h3>
+        <p class="sub">One <span class="mono">name=regex</span> per line; regex group 1 is appended to the pool name.</p>
+        <textarea id="poolPatterns" spellcheck="false" placeholder="MyBatchPool=^batch-worker-\d+$"></textarea>
+        <h3>Baseline (optional)</h3>
+        <p class="sub">Compare against a baseline saved from a healthy series.</p>
+        <div class="controls">
+          <input id="baselineFile" type="file" accept=".json">
+          <button id="saveBaseline" type="button" title="Distill the selected dumps into a baseline JSON and download it">Save these dumps as baseline</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="analyze" class="primary" type="button">Analyze</button>
+      <button id="downloadReport" type="button" hidden>Download standalone HTML report</button>
+      <span id="status" class="sub"></span>
+    </div>
+  </div>
+
+  <div id="tda-root"></div>
+</main>
+
+<script src="/vendor/echarts.min.js"></script>
+<script src="/app.js"></script>
+<script>
+(() => {
+  "use strict";
+  const picked = [];   // {name, content}
+  const $ = id => document.getElementById(id);
+
+  function addFiles(fileList) {
+    for (const f of fileList) {
+      f.text().then(content => {
+        picked.push({ name: f.name, content });
+        $("filelist").textContent = picked.map(p => p.name).join(" · ");
+      });
+    }
+  }
+  $("pick").addEventListener("click", () => $("files").click());
+  $("files").addEventListener("change", e => addFiles(e.target.files));
+  const drop = $("drop");
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("hover"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("hover"));
+  drop.addEventListener("drop", e => {
+    e.preventDefault();
+    drop.classList.remove("hover");
+    addFiles(e.dataTransfer.files);
+  });
+
+  function options() {
+    const poolPatterns = {};
+    for (const line of $("poolPatterns").value.split("\n")) {
+      const eq = line.indexOf("=");
+      if (eq > 0) poolPatterns[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+    }
+    return {
+      stuckK: +$("stuckK").value || 3,
+      fingerprintDepth: +$("fpDepth").value || 8,
+      poolPatterns
+    };
+  }
+
+  async function post(url, body) {
+    const res = await fetch(url, { method: "POST",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function readBaseline() {
+    const f = $("baselineFile").files[0];
+    if (!f) return null;
+    return JSON.parse(await f.text());
+  }
+
+  $("analyze").addEventListener("click", async () => {
+    if (!picked.length) { $("status").textContent = "Add at least one dump file first."; return; }
+    $("status").textContent = "Analyzing…";
+    try {
+      const result = await post("/api/analyze",
+          { files: picked, top: $("toph").value, baseline: await readBaseline(), options: options() });
+      TDA.render(result, $("tda-root"));
+      $("status").textContent = "";
+      $("downloadReport").hidden = false;
+      $("downloadReport").onclick = async () => {
+        const res = await fetch("/api/report", { method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ files: picked, top: $("toph").value,
+                                   baseline: await readBaseline(), options: options() }) });
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "tda-report.html";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      };
+    } catch (e) {
+      $("status").innerHTML = '<span class="err">' + (e.message || e) + "</span>";
+    }
+  });
+
+  $("saveBaseline").addEventListener("click", async () => {
+    if (!picked.length) { $("status").textContent = "Add the healthy dump files first."; return; }
+    $("status").textContent = "Building baseline…";
+    try {
+      const baseline = await post("/api/baseline", { files: picked, options: options() });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(baseline)], { type: "application/json" }));
+      a.download = "tda-baseline.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      $("status").textContent = "Baseline downloaded.";
+    } catch (e) {
+      $("status").innerHTML = '<span class="err">' + (e.message || e) + "</span>";
+    }
+  });
+})();
+</script>
+</body>
+</html>

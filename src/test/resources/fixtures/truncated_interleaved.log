@@ -1,0 +1,14 @@
+2026-07-14 11:22:33
+Full thread dump OpenJDK 64-Bit Server VM (17.0.11+9-LTS mixed mode, sharing):
+
+"worker-1" #12 daemon prio=5 os_prio=0 cpu=1.0ms elapsed=9.0s tid=0x00007f0000001000 nid=0x100 runnable  [0x00007f0000100000]
+   java.lang.Thread.State: RUNNABLE
+	at com.acme.Worker.spin(Worker.java:10)
+	at com.acme.Worker.run(Worker.java:5)
+SOME INTERLEAVED LOG LINE the app printed to stdout mid-dump
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+"worker-2" #13 daemon prio=5 os_prio=0 cpu=2.0ms elapsed=9.0s tid=0x00007f0000002000 nid=0x101 runnable  [0x00007f0000200000]
+   java.lang.Thread.State: RUNNABLE
+	at com.acme.Worker.spin(Worker.java:10)
+	at com.acme.Wor

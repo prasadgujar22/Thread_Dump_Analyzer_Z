@@ -1,0 +1,78 @@
+2026-07-11 02:17:45
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"OrderWriter-1" #27 prio=5 os_prio=0 tid=0x00007f2bc4a01000 nid=0x51a2 waiting for monitor entry [0x00007f2ba86f5000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.orders.LedgerService.append(LedgerService.java:74)
+	- waiting to lock <0x00000000d7015a88> (a com.acme.orders.Ledger)
+	at com.acme.orders.OrderService.commit(OrderService.java:132)
+	- locked <0x00000000d70158c0> (a com.acme.orders.OrderBook)
+	at com.acme.orders.OrderWriter.run(OrderWriter.java:55)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"LedgerFlush-1" #28 prio=5 os_prio=0 tid=0x00007f2bc4a03000 nid=0x51a3 waiting for monitor entry [0x00007f2ba85f4000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.orders.OrderService.snapshot(OrderService.java:201)
+	- waiting to lock <0x00000000d70158c0> (a com.acme.orders.OrderBook)
+	at com.acme.orders.LedgerService.flush(LedgerService.java:98)
+	- locked <0x00000000d7015a88> (a com.acme.orders.Ledger)
+	at com.acme.orders.LedgerFlush.run(LedgerFlush.java:37)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"WaitingWriter-2" #31 prio=5 os_prio=0 tid=0x00007f2bc4a07000 nid=0x51a6 waiting for monitor entry [0x00007f2ba82f1000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.orders.OrderService.commit(OrderService.java:129)
+	- waiting to lock <0x00000000d70158c0> (a com.acme.orders.OrderBook)
+	at com.acme.orders.OrderWriter.run(OrderWriter.java:55)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f2bc4009000 nid=0x5190 waiting on condition [0x00007f2bcb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at com.acme.Server.mainLoop(Server.java:120)
+	at com.acme.Server.main(Server.java:61)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f2bc40c8000 nid=0x5194 runnable
+
+JNI global references: 122
+
+
+Found one Java-level deadlock:
+=============================
+"OrderWriter-1":
+  waiting to lock monitor 0x00007f2bb4003a28 (object 0x00000000d7015a88, a com.acme.orders.Ledger),
+  which is held by "LedgerFlush-1"
+"LedgerFlush-1":
+  waiting to lock monitor 0x00007f2bb4006218 (object 0x00000000d70158c0, a com.acme.orders.OrderBook),
+  which is held by "OrderWriter-1"
+
+Java stack information for the threads listed above:
+===================================================
+"OrderWriter-1":
+	at com.acme.orders.LedgerService.append(LedgerService.java:74)
+	- waiting to lock <0x00000000d7015a88> (a com.acme.orders.Ledger)
+	at com.acme.orders.OrderService.commit(OrderService.java:132)
+	- locked <0x00000000d70158c0> (a com.acme.orders.OrderBook)
+	at com.acme.orders.OrderWriter.run(OrderWriter.java:55)
+	at java.lang.Thread.run(Thread.java:748)
+"LedgerFlush-1":
+	at com.acme.orders.OrderService.snapshot(OrderService.java:201)
+	- waiting to lock <0x00000000d70158c0> (a com.acme.orders.OrderBook)
+	at com.acme.orders.LedgerService.flush(LedgerService.java:98)
+	- locked <0x00000000d7015a88> (a com.acme.orders.Ledger)
+	at com.acme.orders.LedgerFlush.run(LedgerFlush.java:37)
+	at java.lang.Thread.run(Thread.java:748)
+
+Found 1 deadlock.

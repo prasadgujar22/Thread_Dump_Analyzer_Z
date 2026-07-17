@@ -1,0 +1,114 @@
+2026-07-10 14:03:11
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"RMI TCP Connection(idle)" #46 daemon prio=5 os_prio=0 tid=0x00007f0a3c001000 nid=0x2f03 waiting on condition [0x00007f0a778f7000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000e0c9e918> (a java.util.concurrent.SynchronousQueue$TransferStack)
+	at java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:215)
+	at java.util.concurrent.SynchronousQueue$TransferStack.awaitFulfill(SynchronousQueue.java:460)
+	at java.util.concurrent.SynchronousQueue$TransferStack.transfer(SynchronousQueue.java:362)
+	at java.util.concurrent.SynchronousQueue.poll(SynchronousQueue.java:941)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1073)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-1" #33 daemon prio=5 os_prio=0 tid=0x00007f0a3d5a1000 nid=0x2efa waiting on condition [0x00007f0a78dfa000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000e0d11a20> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at org.apache.tomcat.util.threads.TaskQueue.take(TaskQueue.java:107)
+	at org.apache.tomcat.util.threads.TaskQueue.take(TaskQueue.java:33)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-2" #34 daemon prio=5 os_prio=0 tid=0x00007f0a3d5a3000 nid=0x2efb waiting on condition [0x00007f0a78cf9000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000e0d11a20> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at org.apache.tomcat.util.threads.TaskQueue.take(TaskQueue.java:107)
+	at org.apache.tomcat.util.threads.TaskQueue.take(TaskQueue.java:33)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-2-thread-1" #29 prio=5 os_prio=0 tid=0x00007f0a3c9e2800 nid=0x2ef2 runnable [0x00007f0a795fe000]
+   java.lang.Thread.State: RUNNABLE
+	at com.acme.billing.RateCalculator.compute(RateCalculator.java:88)
+	at com.acme.billing.InvoiceJob.run(InvoiceJob.java:41)
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- <0x00000000e11d7700> (a java.util.concurrent.ThreadPoolExecutor$Worker)
+
+"Finalizer" #3 daemon prio=8 os_prio=0 tid=0x00007f0a30112000 nid=0x2ec9 in Object.wait() [0x00007f0a34dfc000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000e0008e98> (a java.lang.ref.ReferenceQueue$Lock)
+	at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:144)
+	- locked <0x00000000e0008e98> (a java.lang.ref.ReferenceQueue$Lock)
+	at java.lang.ref.ReferenceQueue.remove(ReferenceQueue.java:165)
+	at java.lang.ref.Finalizer$FinalizerThread.run(Finalizer.java:216)
+
+   Locked ownable synchronizers:
+	- None
+
+"Reference Handler" #2 daemon prio=10 os_prio=0 tid=0x00007f0a3010d800 nid=0x2ec8 in Object.wait() [0x00007f0a34efd000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000e0008fc0> (a java.lang.ref.Reference$Lock)
+	at java.lang.Object.wait(Object.java:502)
+	at java.lang.ref.Reference.tryHandlePending(Reference.java:191)
+	- locked <0x00000000e0008fc0> (a java.lang.ref.Reference$Lock)
+	at java.lang.ref.Reference$ReferenceHandler.run(Reference.java:153)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f0a30009000 nid=0x2ec3 waiting on condition [0x00007f0a37bfd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at com.acme.Server.mainLoop(Server.java:120)
+	at com.acme.Server.main(Server.java:61)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f0a300c8000 nid=0x2ed3 runnable
+
+"GC task thread#0 (ParallelGC)" os_prio=0 tid=0x00007f0a3001e800 nid=0x2ec4 runnable
+
+"GC task thread#1 (ParallelGC)" os_prio=0 tid=0x00007f0a30020800 nid=0x2ec5 runnable
+
+"C2 CompilerThread0" #5 daemon prio=9 os_prio=0 tid=0x00007f0a30120800 nid=0x2ecb waiting on condition [0x0000000000000000]
+   java.lang.Thread.State: RUNNABLE
+	No compile task
+
+"VM Periodic Task Thread" os_prio=0 tid=0x00007f0a3c112800 nid=0x2f0a waiting on condition
+
+JNI global references: 233

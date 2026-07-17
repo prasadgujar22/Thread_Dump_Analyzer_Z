@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>%%TITLE%%</title>
+<style>
+%%CSS%%
+</style>
+</head>
+<body>
+<main id="tda-root">
+  <h1>Thread Dump Analysis</h1>
+  <noscript><p class="err">This report needs JavaScript enabled (everything is inlined; no network access happens).</p></noscript>
+</main>
+<script>
+%%ECHARTS%%
+</script>
+<script id="tda-data" type="application/json">%%DATA%%</script>
+<script>
+%%APP%%
+</script>
+<script>
+TDA.render(JSON.parse(document.getElementById("tda-data").textContent),
+           document.getElementById("tda-root"));
+</script>
+</body>
+</html>
