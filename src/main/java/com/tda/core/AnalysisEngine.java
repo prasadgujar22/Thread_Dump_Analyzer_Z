@@ -1,5 +1,10 @@
 package com.tda.core;
 
+import com.tda.core.analysis.series.Baseline;
+import com.tda.core.analysis.series.PersistentLockHolders;
+import com.tda.core.analysis.series.PoolTrend;
+import com.tda.core.analysis.series.SeriesIndex;
+import com.tda.core.analysis.series.StuckThreadDetector;
 import com.tda.core.analysis.single.CpuAttribution;
 import com.tda.core.analysis.single.DeadlockDetector;
 import com.tda.core.analysis.single.LockGraph;
@@ -17,8 +22,10 @@ import com.tda.core.model.TopHSample;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Orchestrates all analyzers over a {@link DumpSeries} and produces the canonical
@@ -36,6 +43,12 @@ public final class AnalysisEngine {
     }
 
     public Map<String, Object> analyze(DumpSeries series, List<TopHSample> topH) {
+        return analyze(series, topH, null);
+    }
+
+    /** @param baselineDoc a saved healthy-series baseline to diff against, or null. */
+    public Map<String, Object> analyze(DumpSeries series, List<TopHSample> topH,
+                                       Map<String, Object> baselineDoc) {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("tool", Map.of("name", "tda", "version", VERSION));
         root.put("generatedAt", Instant.now().toString());
@@ -47,7 +60,108 @@ public final class AnalysisEngine {
             dumps.add(analyzeDump(d, pools, topH));
         }
         root.put("dumps", dumps);
+        root.put("series", analyzeSeries(series, pools, baselineDoc));
         return root;
+    }
+
+    /** Distills this series into a baseline document for later {@code --baseline} diffs. */
+    public Map<String, Object> buildBaseline(DumpSeries series) {
+        return new Baseline().build(series, new PoolGrouper(options.poolPatterns), options.topStacks);
+    }
+
+    private Map<String, Object> analyzeSeries(DumpSeries series, PoolGrouper pools,
+                                              Map<String, Object> baselineDoc) {
+        Map<String, Object> s = new LinkedHashMap<>();
+        SeriesIndex index = SeriesIndex.build(series);
+
+        List<StuckThreadDetector.Stuck> stuck = new StuckThreadDetector(
+                options.stuckK, options.fingerprintDepth, options.maxFramesShown).detect(index);
+        List<Object> stuckRows = new ArrayList<>();
+        Set<String> flagged = new LinkedHashSet<>();
+        Map<String, Set<String>> flagReasons = new LinkedHashMap<>();
+        for (StuckThreadDetector.Stuck st : stuck) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", st.name());
+            row.put("tid", st.tid());
+            row.put("fromDump", st.fromDump());
+            row.put("toDump", st.toDump());
+            row.put("dumpsUnchanged", st.runLength());
+            row.put("states", st.states());
+            row.put("fingerprint", st.fingerprint());
+            row.put("frozenFrames", st.frozenFrames());
+            stuckRows.add(row);
+            flag(flagged, flagReasons, st.key(), "stuck");
+        }
+        s.put("stuckThreads", stuckRows);
+
+        List<PersistentLockHolders.Holder> holders = new PersistentLockHolders().detect(series, 2);
+        List<Object> holderRows = new ArrayList<>();
+        for (PersistentLockHolders.Holder h : holders) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("holder", h.holderName());
+            row.put("lockClass", h.lockClass());
+            row.put("dumps", h.dumps());
+            row.put("waiterCounts", h.waiterCounts());
+            row.put("addresses", h.addresses());
+            row.put("starvedTotal", h.starvedTotal());
+            row.put("sampleWaiters", h.sampleWaiters());
+            holderRows.add(row);
+            flag(flagged, flagReasons, h.holderKey(), "persistent-lock-holder");
+        }
+        s.put("persistentLockHolders", holderRows);
+
+        List<Object> trendRows = new ArrayList<>();
+        for (PoolTrend.Trend t : new PoolTrend().analyze(series, pools, options.leakMinGrowth)) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("pool", t.pool());
+            row.put("counts", t.counts());
+            row.put("growth", t.growth());
+            row.put("leakSuspect", t.leakSuspect());
+            trendRows.add(row);
+        }
+        s.put("poolTrends", trendRows);
+
+        // Also flag deadlock participants and WebLogic [STUCK]-marked threads for the swimlane.
+        for (ThreadDump d : series.dumps()) {
+            for (List<String> cycle : d.jvmDeadlockCycles()) {
+                for (String name : cycle) {
+                    ThreadInfo t = d.findByName(name);
+                    if (t != null) flag(flagged, flagReasons, SeriesIndex.keyOf(t), "deadlock");
+                }
+            }
+            for (ThreadInfo t : d.threads()) {
+                if (PoolGrouper.isStuckMarked(t.name())) {
+                    flag(flagged, flagReasons, SeriesIndex.keyOf(t), "weblogic-stuck-marker");
+                }
+            }
+        }
+
+        // Per-thread state transition timelines for flagged threads (swimlane data).
+        List<Object> timelines = new ArrayList<>();
+        for (String key : flagged) {
+            ThreadInfo[] occ = index.occurrences().get(key);
+            if (occ == null) continue;
+            List<Object> states = new ArrayList<>();
+            for (ThreadInfo t : occ) states.add(t == null ? null : t.state().name());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", index.displayName(key));
+            row.put("states", states);
+            row.put("flags", new ArrayList<>(flagReasons.get(key)));
+            timelines.add(row);
+            if (timelines.size() >= 150) break;
+        }
+        s.put("timelines", timelines);
+
+        if (baselineDoc != null) {
+            s.put("baselineDiff", new Baseline().diff(series, pools, options.topStacks, baselineDoc));
+        }
+        return s;
+    }
+
+    private static void flag(Set<String> flagged, Map<String, Set<String>> reasons,
+                             String key, String reason) {
+        flagged.add(key);
+        reasons.computeIfAbsent(key, k -> new LinkedHashSet<>()).add(reason);
     }
 
     private Map<String, Object> analyzeDump(ThreadDump d, PoolGrouper pools, List<TopHSample> topH) {

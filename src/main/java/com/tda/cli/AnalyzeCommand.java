@@ -3,6 +3,7 @@ package com.tda.cli;
 import com.tda.core.AnalysisEngine;
 import com.tda.core.AnalysisOptions;
 import com.tda.core.json.Json;
+import com.tda.core.json.JsonParser;
 import com.tda.core.model.DumpSeries;
 import com.tda.core.model.ThreadDump;
 import com.tda.core.model.TopHSample;
@@ -50,6 +51,14 @@ public class AnalyzeCommand implements Callable<Integer> {
             description = "Extra thread-pool naming rule, repeatable. Regex group 1, when present, is appended to the pool name.")
     List<String> poolPatterns;
 
+    @Option(names = "--baseline-save", paramLabel = "<file>",
+            description = "Treat this series as healthy and save a baseline document for later --baseline diffs.")
+    Path baselineSave;
+
+    @Option(names = "--baseline", paramLabel = "<file>",
+            description = "Diff this (incident) series against a baseline saved with --baseline-save.")
+    Path baselineIn;
+
     @Override
     public Integer call() throws Exception {
         AnalysisOptions opts = buildOptions();
@@ -62,8 +71,23 @@ public class AnalyzeCommand implements Callable<Integer> {
                 ? new TopHParser().parse(Files.readString(topFile, StandardCharsets.UTF_8))
                 : List.of();
 
-        Map<String, Object> result = new AnalysisEngine(opts).analyze(series, topH);
+        AnalysisEngine engine = new AnalysisEngine(opts);
 
+        Map<String, Object> baseline = null;
+        if (baselineIn != null) {
+            baseline = JsonParser.parseObject(Files.readString(baselineIn, StandardCharsets.UTF_8));
+            if (!"tda-baseline".equals(baseline.get("type"))) {
+                System.err.println(baselineIn + " is not a tda baseline file (run --baseline-save first).");
+                return 2;
+            }
+        }
+
+        Map<String, Object> result = engine.analyze(series, topH, baseline);
+
+        if (baselineSave != null) {
+            Files.writeString(baselineSave, Json.write(engine.buildBaseline(series)), StandardCharsets.UTF_8);
+            System.out.println("Baseline saved to " + baselineSave);
+        }
         if (jsonOut != null) {
             Files.writeString(jsonOut, Json.write(result), StandardCharsets.UTF_8);
             System.out.println("JSON written to " + jsonOut);
@@ -101,6 +125,29 @@ public class AnalyzeCommand implements Callable<Integer> {
             }
             List<?> issues = (List<?>) d.get("issues");
             for (Object i : issues) System.out.println("      parse note: " + i);
+        }
+        Map<String, Object> ser = (Map<String, Object>) result.get("series");
+        if (ser != null) {
+            List<?> stuck = (List<?>) ser.get("stuckThreads");
+            for (Object o : stuck) {
+                Map<String, Object> st = (Map<String, Object>) o;
+                System.out.printf("  STUCK: \"%s\" unchanged for %s consecutive dumps (%s..%s), states=%s%n",
+                        st.get("name"), st.get("dumpsUnchanged"), st.get("fromDump"),
+                        st.get("toDump"), st.get("states"));
+            }
+            List<?> holders = (List<?>) ser.get("persistentLockHolders");
+            for (Object o : holders) {
+                Map<String, Object> h = (Map<String, Object>) o;
+                System.out.printf("  PERSISTENT LOCK HOLDER: \"%s\" holds %s across dumps %s, starved %s thread(s)%n",
+                        h.get("holder"), h.get("lockClass"), h.get("dumps"), h.get("starvedTotal"));
+            }
+            for (Object o : (List<?>) ser.get("poolTrends")) {
+                Map<String, Object> t = (Map<String, Object>) o;
+                if (Boolean.TRUE.equals(t.get("leakSuspect"))) {
+                    System.out.printf("  THREAD-LEAK SUSPECT: pool \"%s\" grew monotonically %s%n",
+                            t.get("pool"), t.get("counts"));
+                }
+            }
         }
         for (ThreadDump d : series.dumps()) {
             long stuckMarked = d.threads().stream()
