@@ -1,0 +1,1297 @@
+<Jul 13, 2026 3:00:00 AM GMT> <Info> <WorkManager> <BEA-002959> <Self-tuning thread pool contains 0 running threads>
+<Jul 13, 2026 3:00:00 AM GMT> <Notice> <Diagnostics> <BEA-320068> <Watch "StuckThread" fired>
+2026-07-13 03:00:07
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"[ACTIVE] ExecuteThread: '12' for queue: 'weblogic.kernel.Default (self-tuning)'" #48 daemon prio=1 os_prio=0 tid=0x00007f88c4b12000 nid=0x6b2c runnable [0x00007f88a34f3000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(Native Method)
+	at java.net.SocketInputStream.socketRead(SocketInputStream.java:116)
+	at java.net.SocketInputStream.read(SocketInputStream.java:171)
+	at java.net.SocketInputStream.read(SocketInputStream.java:141)
+	at com.acme.mainframe.MqBridge.call(MqBridge.java:143)
+	at com.acme.claims.ClaimService.settle(ClaimService.java:88)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '5' for queue: 'weblogic.kernel.Default (self-tuning)'" #55 daemon prio=5 os_prio=0 tid=0x00007f88c4c05000 nid=0x6c05 waiting for monitor entry [0x00007f88a35f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '6' for queue: 'weblogic.kernel.Default (self-tuning)'" #56 daemon prio=5 os_prio=0 tid=0x00007f88c4c06000 nid=0x6c06 waiting for monitor entry [0x00007f88a36f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '7' for queue: 'weblogic.kernel.Default (self-tuning)'" #57 daemon prio=5 os_prio=0 tid=0x00007f88c4c07000 nid=0x6c07 waiting for monitor entry [0x00007f88a37f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '4' for queue: 'weblogic.kernel.Default (self-tuning)'" #44 daemon prio=5 os_prio=0 tid=0x00007f88c4b04000 nid=0x6b24 runnable [0x00007f88a38f7000]
+   java.lang.Thread.State: RUNNABLE
+	at java.io.FileOutputStream.writeBytes(Native Method)
+	at java.io.FileOutputStream.write(FileOutputStream.java:326)
+	at org.apache.log4j.ConsoleAppender.append(ConsoleAppender.java:63)
+	at org.apache.log4j.WriterAppender.subAppend(WriterAppender.java:307)
+	at org.apache.log4j.AppenderSkeleton.doAppend(AppenderSkeleton.java:251)
+	at org.apache.log4j.Category.callAppenders(Category.java:206)
+	- locked <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '20' for queue: 'weblogic.kernel.Default (self-tuning)'" #70 daemon prio=5 os_prio=0 tid=0x00007f88c4d00000 nid=0x6d00 in Object.wait() [0x00007f88a20e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '21' for queue: 'weblogic.kernel.Default (self-tuning)'" #71 daemon prio=5 os_prio=0 tid=0x00007f88c4d01000 nid=0x6d01 in Object.wait() [0x00007f88a21e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '22' for queue: 'weblogic.kernel.Default (self-tuning)'" #72 daemon prio=5 os_prio=0 tid=0x00007f88c4d02000 nid=0x6d02 in Object.wait() [0x00007f88a22e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-1" #101 prio=5 os_prio=0 tid=0x00007f88c4e01800 nid=0x7001 waiting on condition [0x00007f88a11d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-2" #102 prio=5 os_prio=0 tid=0x00007f88c4e02800 nid=0x7002 waiting on condition [0x00007f88a12d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-3" #103 prio=5 os_prio=0 tid=0x00007f88c4e03800 nid=0x7003 waiting on condition [0x00007f88a13d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f88c4009000 nid=0x6b01 waiting on condition [0x00007f88cb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at weblogic.Server.main(Server.java:71)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f88c40c8000 nid=0x6b05 runnable
+
+JNI global references: 412
+
+<Jul 13, 2026 3:00:02 AM GMT> <Info> <Diagnostics> <BEA-320069> <Dump 1 complete>
+<Jul 13, 2026 3:00:30 AM GMT> <Warning> <Socket> <BEA-000449> <Closing socket as no data read>
+<Jul 13, 2026 3:01:00 AM GMT> <Notice> <Diagnostics> <BEA-320068> <Watch "StuckThread" fired>
+2026-07-13 03:01:04
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"[STUCK] ExecuteThread: '12' for queue: 'weblogic.kernel.Default (self-tuning)'" #48 daemon prio=1 os_prio=0 tid=0x00007f88c4b12000 nid=0x6b2c runnable [0x00007f88a34f3000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(Native Method)
+	at java.net.SocketInputStream.socketRead(SocketInputStream.java:116)
+	at java.net.SocketInputStream.read(SocketInputStream.java:171)
+	at java.net.SocketInputStream.read(SocketInputStream.java:141)
+	at com.acme.mainframe.MqBridge.call(MqBridge.java:143)
+	at com.acme.claims.ClaimService.settle(ClaimService.java:88)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '5' for queue: 'weblogic.kernel.Default (self-tuning)'" #55 daemon prio=5 os_prio=0 tid=0x00007f88c4c05000 nid=0x6c05 waiting for monitor entry [0x00007f88a35f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '6' for queue: 'weblogic.kernel.Default (self-tuning)'" #56 daemon prio=5 os_prio=0 tid=0x00007f88c4c06000 nid=0x6c06 waiting for monitor entry [0x00007f88a36f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '7' for queue: 'weblogic.kernel.Default (self-tuning)'" #57 daemon prio=5 os_prio=0 tid=0x00007f88c4c07000 nid=0x6c07 waiting for monitor entry [0x00007f88a37f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '8' for queue: 'weblogic.kernel.Default (self-tuning)'" #58 daemon prio=5 os_prio=0 tid=0x00007f88c4c08000 nid=0x6c08 waiting for monitor entry [0x00007f88a38f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '4' for queue: 'weblogic.kernel.Default (self-tuning)'" #44 daemon prio=5 os_prio=0 tid=0x00007f88c4b04000 nid=0x6b24 runnable [0x00007f88a38f7000]
+   java.lang.Thread.State: RUNNABLE
+	at java.io.FileOutputStream.writeBytes(Native Method)
+	at java.io.FileOutputStream.write(FileOutputStream.java:326)
+	at org.apache.log4j.ConsoleAppender.append(ConsoleAppender.java:63)
+	at org.apache.log4j.WriterAppender.subAppend(WriterAppender.java:307)
+	at org.apache.log4j.AppenderSkeleton.doAppend(AppenderSkeleton.java:251)
+	at org.apache.log4j.Category.callAppenders(Category.java:206)
+	- locked <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '20' for queue: 'weblogic.kernel.Default (self-tuning)'" #70 daemon prio=5 os_prio=0 tid=0x00007f88c4d00000 nid=0x6d00 in Object.wait() [0x00007f88a20e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '21' for queue: 'weblogic.kernel.Default (self-tuning)'" #71 daemon prio=5 os_prio=0 tid=0x00007f88c4d01000 nid=0x6d01 in Object.wait() [0x00007f88a21e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '22' for queue: 'weblogic.kernel.Default (self-tuning)'" #72 daemon prio=5 os_prio=0 tid=0x00007f88c4d02000 nid=0x6d02 in Object.wait() [0x00007f88a22e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-1" #101 prio=5 os_prio=0 tid=0x00007f88c4e01800 nid=0x7001 waiting on condition [0x00007f88a11d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-2" #102 prio=5 os_prio=0 tid=0x00007f88c4e02800 nid=0x7002 waiting on condition [0x00007f88a12d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-3" #103 prio=5 os_prio=0 tid=0x00007f88c4e03800 nid=0x7003 waiting on condition [0x00007f88a13d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-4" #104 prio=5 os_prio=0 tid=0x00007f88c4e04800 nid=0x7004 waiting on condition [0x00007f88a14d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-5" #105 prio=5 os_prio=0 tid=0x00007f88c4e05800 nid=0x7005 waiting on condition [0x00007f88a15d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f88c4009000 nid=0x6b01 waiting on condition [0x00007f88cb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at weblogic.Server.main(Server.java:71)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f88c40c8000 nid=0x6b05 runnable
+
+JNI global references: 412
+
+<Jul 13, 2026 3:01:02 AM GMT> <Info> <Diagnostics> <BEA-320069> <Dump 2 complete>
+<Jul 13, 2026 3:00:30 AM GMT> <Warning> <Socket> <BEA-000449> <Closing socket as no data read>
+<Jul 13, 2026 3:02:00 AM GMT> <Notice> <Diagnostics> <BEA-320068> <Watch "StuckThread" fired>
+2026-07-13 03:02:01
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"[STUCK] ExecuteThread: '12' for queue: 'weblogic.kernel.Default (self-tuning)'" #48 daemon prio=1 os_prio=0 tid=0x00007f88c4b12000 nid=0x6b2c runnable [0x00007f88a34f3000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(Native Method)
+	at java.net.SocketInputStream.socketRead(SocketInputStream.java:116)
+	at java.net.SocketInputStream.read(SocketInputStream.java:171)
+	at java.net.SocketInputStream.read(SocketInputStream.java:141)
+	at com.acme.mainframe.MqBridge.call(MqBridge.java:143)
+	at com.acme.claims.ClaimService.settle(ClaimService.java:88)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '5' for queue: 'weblogic.kernel.Default (self-tuning)'" #55 daemon prio=5 os_prio=0 tid=0x00007f88c4c05000 nid=0x6c05 waiting for monitor entry [0x00007f88a35f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '6' for queue: 'weblogic.kernel.Default (self-tuning)'" #56 daemon prio=5 os_prio=0 tid=0x00007f88c4c06000 nid=0x6c06 waiting for monitor entry [0x00007f88a36f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '7' for queue: 'weblogic.kernel.Default (self-tuning)'" #57 daemon prio=5 os_prio=0 tid=0x00007f88c4c07000 nid=0x6c07 waiting for monitor entry [0x00007f88a37f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '8' for queue: 'weblogic.kernel.Default (self-tuning)'" #58 daemon prio=5 os_prio=0 tid=0x00007f88c4c08000 nid=0x6c08 waiting for monitor entry [0x00007f88a38f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '9' for queue: 'weblogic.kernel.Default (self-tuning)'" #59 daemon prio=5 os_prio=0 tid=0x00007f88c4c09000 nid=0x6c09 waiting for monitor entry [0x00007f88a39f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '4' for queue: 'weblogic.kernel.Default (self-tuning)'" #44 daemon prio=5 os_prio=0 tid=0x00007f88c4b04000 nid=0x6b24 runnable [0x00007f88a38f7000]
+   java.lang.Thread.State: RUNNABLE
+	at java.io.FileOutputStream.writeBytes(Native Method)
+	at java.io.FileOutputStream.write(FileOutputStream.java:326)
+	at org.apache.log4j.ConsoleAppender.append(ConsoleAppender.java:63)
+	at org.apache.log4j.WriterAppender.subAppend(WriterAppender.java:307)
+	at org.apache.log4j.AppenderSkeleton.doAppend(AppenderSkeleton.java:251)
+	at org.apache.log4j.Category.callAppenders(Category.java:206)
+	- locked <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '20' for queue: 'weblogic.kernel.Default (self-tuning)'" #70 daemon prio=5 os_prio=0 tid=0x00007f88c4d00000 nid=0x6d00 in Object.wait() [0x00007f88a20e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '21' for queue: 'weblogic.kernel.Default (self-tuning)'" #71 daemon prio=5 os_prio=0 tid=0x00007f88c4d01000 nid=0x6d01 in Object.wait() [0x00007f88a21e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '22' for queue: 'weblogic.kernel.Default (self-tuning)'" #72 daemon prio=5 os_prio=0 tid=0x00007f88c4d02000 nid=0x6d02 in Object.wait() [0x00007f88a22e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-1" #101 prio=5 os_prio=0 tid=0x00007f88c4e01800 nid=0x7001 waiting on condition [0x00007f88a11d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-2" #102 prio=5 os_prio=0 tid=0x00007f88c4e02800 nid=0x7002 waiting on condition [0x00007f88a12d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-3" #103 prio=5 os_prio=0 tid=0x00007f88c4e03800 nid=0x7003 waiting on condition [0x00007f88a13d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-4" #104 prio=5 os_prio=0 tid=0x00007f88c4e04800 nid=0x7004 waiting on condition [0x00007f88a14d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-5" #105 prio=5 os_prio=0 tid=0x00007f88c4e05800 nid=0x7005 waiting on condition [0x00007f88a15d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-6" #106 prio=5 os_prio=0 tid=0x00007f88c4e06800 nid=0x7006 waiting on condition [0x00007f88a16d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-7" #107 prio=5 os_prio=0 tid=0x00007f88c4e07800 nid=0x7007 waiting on condition [0x00007f88a17d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f88c4009000 nid=0x6b01 waiting on condition [0x00007f88cb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at weblogic.Server.main(Server.java:71)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f88c40c8000 nid=0x6b05 runnable
+
+JNI global references: 412
+
+<Jul 13, 2026 3:02:02 AM GMT> <Info> <Diagnostics> <BEA-320069> <Dump 3 complete>
+<Jul 13, 2026 3:00:30 AM GMT> <Warning> <Socket> <BEA-000449> <Closing socket as no data read>
+<Jul 13, 2026 3:03:00 AM GMT> <Notice> <Diagnostics> <BEA-320068> <Watch "StuckThread" fired>
+2026-07-13 03:03:08
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"[STUCK] ExecuteThread: '12' for queue: 'weblogic.kernel.Default (self-tuning)'" #48 daemon prio=1 os_prio=0 tid=0x00007f88c4b12000 nid=0x6b2c runnable [0x00007f88a34f3000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(Native Method)
+	at java.net.SocketInputStream.socketRead(SocketInputStream.java:116)
+	at java.net.SocketInputStream.read(SocketInputStream.java:171)
+	at java.net.SocketInputStream.read(SocketInputStream.java:141)
+	at com.acme.mainframe.MqBridge.call(MqBridge.java:143)
+	at com.acme.claims.ClaimService.settle(ClaimService.java:88)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '5' for queue: 'weblogic.kernel.Default (self-tuning)'" #55 daemon prio=5 os_prio=0 tid=0x00007f88c4c05000 nid=0x6c05 waiting for monitor entry [0x00007f88a35f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '6' for queue: 'weblogic.kernel.Default (self-tuning)'" #56 daemon prio=5 os_prio=0 tid=0x00007f88c4c06000 nid=0x6c06 waiting for monitor entry [0x00007f88a36f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '7' for queue: 'weblogic.kernel.Default (self-tuning)'" #57 daemon prio=5 os_prio=0 tid=0x00007f88c4c07000 nid=0x6c07 waiting for monitor entry [0x00007f88a37f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '8' for queue: 'weblogic.kernel.Default (self-tuning)'" #58 daemon prio=5 os_prio=0 tid=0x00007f88c4c08000 nid=0x6c08 waiting for monitor entry [0x00007f88a38f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '9' for queue: 'weblogic.kernel.Default (self-tuning)'" #59 daemon prio=5 os_prio=0 tid=0x00007f88c4c09000 nid=0x6c09 waiting for monitor entry [0x00007f88a39f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '10' for queue: 'weblogic.kernel.Default (self-tuning)'" #60 daemon prio=5 os_prio=0 tid=0x00007f88c4c10000 nid=0x6c0a waiting for monitor entry [0x00007f88a3af0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '4' for queue: 'weblogic.kernel.Default (self-tuning)'" #44 daemon prio=5 os_prio=0 tid=0x00007f88c4b04000 nid=0x6b24 runnable [0x00007f88a38f7000]
+   java.lang.Thread.State: RUNNABLE
+	at java.io.FileOutputStream.writeBytes(Native Method)
+	at java.io.FileOutputStream.write(FileOutputStream.java:326)
+	at org.apache.log4j.ConsoleAppender.append(ConsoleAppender.java:63)
+	at org.apache.log4j.WriterAppender.subAppend(WriterAppender.java:307)
+	at org.apache.log4j.AppenderSkeleton.doAppend(AppenderSkeleton.java:251)
+	at org.apache.log4j.Category.callAppenders(Category.java:206)
+	- locked <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '20' for queue: 'weblogic.kernel.Default (self-tuning)'" #70 daemon prio=5 os_prio=0 tid=0x00007f88c4d00000 nid=0x6d00 in Object.wait() [0x00007f88a20e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '21' for queue: 'weblogic.kernel.Default (self-tuning)'" #71 daemon prio=5 os_prio=0 tid=0x00007f88c4d01000 nid=0x6d01 in Object.wait() [0x00007f88a21e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '22' for queue: 'weblogic.kernel.Default (self-tuning)'" #72 daemon prio=5 os_prio=0 tid=0x00007f88c4d02000 nid=0x6d02 in Object.wait() [0x00007f88a22e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-1" #101 prio=5 os_prio=0 tid=0x00007f88c4e01800 nid=0x7001 waiting on condition [0x00007f88a11d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-2" #102 prio=5 os_prio=0 tid=0x00007f88c4e02800 nid=0x7002 waiting on condition [0x00007f88a12d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-3" #103 prio=5 os_prio=0 tid=0x00007f88c4e03800 nid=0x7003 waiting on condition [0x00007f88a13d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-4" #104 prio=5 os_prio=0 tid=0x00007f88c4e04800 nid=0x7004 waiting on condition [0x00007f88a14d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-5" #105 prio=5 os_prio=0 tid=0x00007f88c4e05800 nid=0x7005 waiting on condition [0x00007f88a15d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-6" #106 prio=5 os_prio=0 tid=0x00007f88c4e06800 nid=0x7006 waiting on condition [0x00007f88a16d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-7" #107 prio=5 os_prio=0 tid=0x00007f88c4e07800 nid=0x7007 waiting on condition [0x00007f88a17d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-8" #108 prio=5 os_prio=0 tid=0x00007f88c4e08800 nid=0x7008 waiting on condition [0x00007f88a18d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-9" #109 prio=5 os_prio=0 tid=0x00007f88c4e09800 nid=0x7009 waiting on condition [0x00007f88a19d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f88c4009000 nid=0x6b01 waiting on condition [0x00007f88cb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at weblogic.Server.main(Server.java:71)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f88c40c8000 nid=0x6b05 runnable
+
+JNI global references: 412
+
+<Jul 13, 2026 3:03:02 AM GMT> <Info> <Diagnostics> <BEA-320069> <Dump 4 complete>
+<Jul 13, 2026 3:00:30 AM GMT> <Warning> <Socket> <BEA-000449> <Closing socket as no data read>
+<Jul 13, 2026 3:04:00 AM GMT> <Notice> <Diagnostics> <BEA-320068> <Watch "StuckThread" fired>
+2026-07-13 03:04:05
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"[STUCK] ExecuteThread: '12' for queue: 'weblogic.kernel.Default (self-tuning)'" #48 daemon prio=1 os_prio=0 tid=0x00007f88c4b12000 nid=0x6b2c runnable [0x00007f88a34f3000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(Native Method)
+	at java.net.SocketInputStream.socketRead(SocketInputStream.java:116)
+	at java.net.SocketInputStream.read(SocketInputStream.java:171)
+	at java.net.SocketInputStream.read(SocketInputStream.java:141)
+	at com.acme.mainframe.MqBridge.call(MqBridge.java:143)
+	at com.acme.claims.ClaimService.settle(ClaimService.java:88)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '5' for queue: 'weblogic.kernel.Default (self-tuning)'" #55 daemon prio=5 os_prio=0 tid=0x00007f88c4c05000 nid=0x6c05 waiting for monitor entry [0x00007f88a35f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '6' for queue: 'weblogic.kernel.Default (self-tuning)'" #56 daemon prio=5 os_prio=0 tid=0x00007f88c4c06000 nid=0x6c06 waiting for monitor entry [0x00007f88a36f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '7' for queue: 'weblogic.kernel.Default (self-tuning)'" #57 daemon prio=5 os_prio=0 tid=0x00007f88c4c07000 nid=0x6c07 waiting for monitor entry [0x00007f88a37f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '8' for queue: 'weblogic.kernel.Default (self-tuning)'" #58 daemon prio=5 os_prio=0 tid=0x00007f88c4c08000 nid=0x6c08 waiting for monitor entry [0x00007f88a38f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '9' for queue: 'weblogic.kernel.Default (self-tuning)'" #59 daemon prio=5 os_prio=0 tid=0x00007f88c4c09000 nid=0x6c09 waiting for monitor entry [0x00007f88a39f0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '10' for queue: 'weblogic.kernel.Default (self-tuning)'" #60 daemon prio=5 os_prio=0 tid=0x00007f88c4c10000 nid=0x6c0a waiting for monitor entry [0x00007f88a3af0000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at org.apache.log4j.Category.callAppenders(Category.java:204)
+	- waiting to lock <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.servlet.internal.ServletStubImpl.execute(ServletStubImpl.java:326)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[ACTIVE] ExecuteThread: '4' for queue: 'weblogic.kernel.Default (self-tuning)'" #44 daemon prio=5 os_prio=0 tid=0x00007f88c4b04000 nid=0x6b24 runnable [0x00007f88a38f7000]
+   java.lang.Thread.State: RUNNABLE
+	at java.io.FileOutputStream.writeBytes(Native Method)
+	at java.io.FileOutputStream.write(FileOutputStream.java:326)
+	at org.apache.log4j.ConsoleAppender.append(ConsoleAppender.java:63)
+	at org.apache.log4j.WriterAppender.subAppend(WriterAppender.java:307)
+	at org.apache.log4j.AppenderSkeleton.doAppend(AppenderSkeleton.java:251)
+	at org.apache.log4j.Category.callAppenders(Category.java:206)
+	- locked <0x00000000d9a01b60> (a org.apache.log4j.spi.RootLogger)
+	at org.apache.log4j.Category.forcedLog(Category.java:391)
+	at org.apache.log4j.Category.info(Category.java:666)
+	at com.acme.claims.ClaimService.audit(ClaimService.java:141)
+	at weblogic.work.ExecuteThread.execute(ExecuteThread.java:420)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:360)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '20' for queue: 'weblogic.kernel.Default (self-tuning)'" #70 daemon prio=5 os_prio=0 tid=0x00007f88c4d00000 nid=0x6d00 in Object.wait() [0x00007f88a20e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b00c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '21' for queue: 'weblogic.kernel.Default (self-tuning)'" #71 daemon prio=5 os_prio=0 tid=0x00007f88c4d01000 nid=0x6d01 in Object.wait() [0x00007f88a21e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b01c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"[STANDBY] ExecuteThread: '22' for queue: 'weblogic.kernel.Default (self-tuning)'" #72 daemon prio=5 os_prio=0 tid=0x00007f88c4d02000 nid=0x6d02 in Object.wait() [0x00007f88a22e0000]
+   java.lang.Thread.State: WAITING (on object monitor)
+	at java.lang.Object.wait(Native Method)
+	- waiting on <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at java.lang.Object.wait(Object.java:502)
+	at weblogic.work.ExecuteThread.waitForRequest(ExecuteThread.java:294)
+	- locked <0x00000000d9b02c38> (a weblogic.work.ExecuteThread)
+	at weblogic.work.ExecuteThread.run(ExecuteThread.java:319)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-1" #101 prio=5 os_prio=0 tid=0x00007f88c4e01800 nid=0x7001 waiting on condition [0x00007f88a11d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-2" #102 prio=5 os_prio=0 tid=0x00007f88c4e02800 nid=0x7002 waiting on condition [0x00007f88a12d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-3" #103 prio=5 os_prio=0 tid=0x00007f88c4e03800 nid=0x7003 waiting on condition [0x00007f88a13d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-4" #104 prio=5 os_prio=0 tid=0x00007f88c4e04800 nid=0x7004 waiting on condition [0x00007f88a14d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-5" #105 prio=5 os_prio=0 tid=0x00007f88c4e05800 nid=0x7005 waiting on condition [0x00007f88a15d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-6" #106 prio=5 os_prio=0 tid=0x00007f88c4e06800 nid=0x7006 waiting on condition [0x00007f88a16d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-7" #107 prio=5 os_prio=0 tid=0x00007f88c4e07800 nid=0x7007 waiting on condition [0x00007f88a17d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-8" #108 prio=5 os_prio=0 tid=0x00007f88c4e08800 nid=0x7008 waiting on condition [0x00007f88a18d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-9" #109 prio=5 os_prio=0 tid=0x00007f88c4e09800 nid=0x7009 waiting on condition [0x00007f88a19d0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-10" #110 prio=5 os_prio=0 tid=0x00007f88c4e10800 nid=0x700a waiting on condition [0x00007f88a1ad0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"pool-9-thread-11" #111 prio=5 os_prio=0 tid=0x00007f88c4e11800 nid=0x700b waiting on condition [0x00007f88a1bd0000]
+   java.lang.Thread.State: WAITING (parking)
+	at sun.misc.Unsafe.park(Native Method)
+	- parking to wait for  <0x00000000da55e918> (a java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject)
+	at java.util.concurrent.locks.LockSupport.park(LockSupport.java:175)
+	at java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:2039)
+	at java.util.concurrent.LinkedBlockingQueue.take(LinkedBlockingQueue.java:442)
+	at java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1074)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1134)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f88c4009000 nid=0x6b01 waiting on condition [0x00007f88cb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at weblogic.Server.main(Server.java:71)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f88c40c8000 nid=0x6b05 runnable
+
+JNI global references: 412
+
+<Jul 13, 2026 3:04:02 AM GMT> <Info> <Diagnostics> <BEA-320069> <Dump 5 complete>
+<Jul 13, 2026 3:00:30 AM GMT> <Warning> <Socket> <BEA-000449> <Closing socket as no data read>

@@ -1,0 +1,330 @@
+2026-07-12 09:41:03
+Full thread dump OpenJDK 64-Bit Server VM (17.0.11+9-LTS mixed mode, sharing):
+
+"http-nio-8080-exec-1" #41 daemon prio=5 os_prio=0 cpu=113.21ms elapsed=3612.4s tid=0x00007f6bd8202000 nid=0x3101 waiting on condition  [0x00007f6bb10f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-2" #42 daemon prio=5 os_prio=0 cpu=116.21ms elapsed=3612.4s tid=0x00007f6bd8204000 nid=0x3102 waiting on condition  [0x00007f6bb20f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-3" #43 daemon prio=5 os_prio=0 cpu=119.21ms elapsed=3612.4s tid=0x00007f6bd8206000 nid=0x3103 waiting on condition  [0x00007f6bb30f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-4" #44 daemon prio=5 os_prio=0 cpu=122.21ms elapsed=3612.4s tid=0x00007f6bd8208000 nid=0x3104 waiting on condition  [0x00007f6bb40f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-5" #45 daemon prio=5 os_prio=0 cpu=125.21ms elapsed=3612.4s tid=0x00007f6bd820a000 nid=0x3105 waiting on condition  [0x00007f6bb50f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-6" #46 daemon prio=5 os_prio=0 cpu=128.21ms elapsed=3612.4s tid=0x00007f6bd820c000 nid=0x3106 waiting on condition  [0x00007f6bb60f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-7" #47 daemon prio=5 os_prio=0 cpu=131.21ms elapsed=3612.4s tid=0x00007f6bd820e000 nid=0x3107 waiting on condition  [0x00007f6bb70f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-8" #48 daemon prio=5 os_prio=0 cpu=134.21ms elapsed=3612.4s tid=0x00007f6bd8210000 nid=0x3108 waiting on condition  [0x00007f6bb80f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-9" #49 daemon prio=5 os_prio=0 cpu=137.21ms elapsed=3612.4s tid=0x00007f6bd8212000 nid=0x3109 waiting on condition  [0x00007f6bb90f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-10" #50 daemon prio=5 os_prio=0 cpu=140.21ms elapsed=3612.4s tid=0x00007f6bd8214000 nid=0x310a waiting on condition  [0x00007f6bba0f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-11" #51 daemon prio=5 os_prio=0 cpu=143.21ms elapsed=3612.4s tid=0x00007f6bd8216000 nid=0x310b waiting on condition  [0x00007f6bbb0f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-12" #52 daemon prio=5 os_prio=0 cpu=146.21ms elapsed=3612.4s tid=0x00007f6bd8218000 nid=0x310c waiting on condition  [0x00007f6bbc0f0000]
+   java.lang.Thread.State: TIMED_WAITING (parking)
+	at jdk.internal.misc.Unsafe.park(java.base@17.0.11/Native Method)
+	- parking to wait for  <0x00000000e222c3a8> (a java.util.concurrent.SynchronousQueue$TransferQueue)
+	at java.util.concurrent.locks.LockSupport.parkNanos(java.base@17.0.11/LockSupport.java:252)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.awaitFulfill(java.base@17.0.11/SynchronousQueue.java:704)
+	at java.util.concurrent.SynchronousQueue$TransferQueue.transfer(java.base@17.0.11/SynchronousQueue.java:635)
+	at java.util.concurrent.SynchronousQueue.poll(java.base@17.0.11/SynchronousQueue.java:944)
+	at com.zaxxer.hikari.util.ConcurrentBag.borrow(ConcurrentBag.java:151)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:180)
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:162)
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:100)
+	at com.acme.dao.CustomerDao.findById(CustomerDao.java:52)
+	at com.acme.web.CustomerController.get(CustomerController.java:38)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-20" #60 daemon prio=5 os_prio=0 cpu=95312.00ms elapsed=3612.4s tid=0x00007f6bd8300000 nid=0x3200 runnable  [0x00007f6bb01f1000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(java.base@17.0.11/Native Method)
+	at java.net.SocketInputStream.socketRead(java.base@17.0.11/SocketInputStream.java:115)
+	at java.net.SocketInputStream.read(java.base@17.0.11/SocketInputStream.java:168)
+	at java.net.SocketInputStream.read(java.base@17.0.11/SocketInputStream.java:140)
+	at oracle.net.ns.Packet.receive(Packet.java:311)
+	at oracle.net.ns.NetInputStream.read(NetInputStream.java:317)
+	at oracle.jdbc.driver.T4CSocketInputStreamWrapper.read(T4CSocketInputStreamWrapper.java:105)
+	at oracle.jdbc.driver.T4CStatement.executeForRows(T4CStatement.java:928)
+	at oracle.jdbc.driver.OracleStatement.executeQuery(OracleStatement.java:1602)
+	at com.zaxxer.hikari.pool.ProxyStatement.executeQuery(ProxyStatement.java:110)
+	at com.acme.dao.ReportDao.slowQuery(ReportDao.java:210)
+	at com.acme.web.ReportController.monthly(ReportController.java:71)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- <0x00000000e2300f10> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)
+
+"http-nio-8080-exec-21" #61 daemon prio=5 os_prio=0 cpu=95312.10ms elapsed=3612.4s tid=0x00007f6bd8302000 nid=0x3201 runnable  [0x00007f6bb11f1000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(java.base@17.0.11/Native Method)
+	at java.net.SocketInputStream.socketRead(java.base@17.0.11/SocketInputStream.java:115)
+	at java.net.SocketInputStream.read(java.base@17.0.11/SocketInputStream.java:168)
+	at java.net.SocketInputStream.read(java.base@17.0.11/SocketInputStream.java:140)
+	at oracle.net.ns.Packet.receive(Packet.java:311)
+	at oracle.net.ns.NetInputStream.read(NetInputStream.java:317)
+	at oracle.jdbc.driver.T4CSocketInputStreamWrapper.read(T4CSocketInputStreamWrapper.java:105)
+	at oracle.jdbc.driver.T4CStatement.executeForRows(T4CStatement.java:928)
+	at oracle.jdbc.driver.OracleStatement.executeQuery(OracleStatement.java:1602)
+	at com.zaxxer.hikari.pool.ProxyStatement.executeQuery(ProxyStatement.java:110)
+	at com.acme.dao.ReportDao.slowQuery(ReportDao.java:210)
+	at com.acme.web.ReportController.monthly(ReportController.java:71)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- <0x00000000e2301f10> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)
+
+"http-nio-8080-exec-22" #62 daemon prio=5 os_prio=0 cpu=95312.20ms elapsed=3612.4s tid=0x00007f6bd8304000 nid=0x3202 runnable  [0x00007f6bb21f1000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(java.base@17.0.11/Native Method)
+	at java.net.SocketInputStream.socketRead(java.base@17.0.11/SocketInputStream.java:115)
+	at java.net.SocketInputStream.read(java.base@17.0.11/SocketInputStream.java:168)
+	at java.net.SocketInputStream.read(java.base@17.0.11/SocketInputStream.java:140)
+	at oracle.net.ns.Packet.receive(Packet.java:311)
+	at oracle.net.ns.NetInputStream.read(NetInputStream.java:317)
+	at oracle.jdbc.driver.T4CSocketInputStreamWrapper.read(T4CSocketInputStreamWrapper.java:105)
+	at oracle.jdbc.driver.T4CStatement.executeForRows(T4CStatement.java:928)
+	at oracle.jdbc.driver.OracleStatement.executeQuery(OracleStatement.java:1602)
+	at com.zaxxer.hikari.pool.ProxyStatement.executeQuery(ProxyStatement.java:110)
+	at com.acme.dao.ReportDao.slowQuery(ReportDao.java:210)
+	at com.acme.web.ReportController.monthly(ReportController.java:71)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+   Locked ownable synchronizers:
+	- <0x00000000e2302f10> (a java.util.concurrent.locks.ReentrantLock$NonfairSync)
+
+"main" #1 prio=5 os_prio=0 cpu=141.51ms elapsed=3620.68s tid=0x00007f6bd8028fd0 nid=0x2f03 waiting on condition  [0x00007f6bdf6f9000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(java.base@17.0.11/Native Method)
+	at com.acme.Server.mainLoop(Server.java:120)
+	at com.acme.Server.main(Server.java:61)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 cpu=42.15ms elapsed=3620.67s tid=0x00007f6bd817d740 nid=0x2f08 runnable
+
+JNI global refs: 18, weak refs: 0
