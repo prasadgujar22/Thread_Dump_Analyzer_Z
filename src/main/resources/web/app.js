@@ -315,8 +315,15 @@ const TDA = (() => {
     if (gcNote) root.appendChild(el("p", { class: "sub" }, "⚠ " + esc(gcNote)));
     root.appendChild(el("p", { class: "sub" },
         `${esc(range)} · ${esc(last.banner || "")} · generated ${esc(data.generatedAt)}`));
+    const quality = data.qualityNotes || [];
+    if (quality.length) {
+      root.appendChild(el("div", { class: "card" },
+          `<b>Dump quality</b> <span class="badge">${quality.length}</span><div class="sub">` +
+          quality.map(n => `<span class="sevtag ${n.level === "WARNING" ? "WARNING" : "INFO"}">` +
+              `${esc(n.level)}</span>${esc(n.message)}`).join("<br>") + `</div>`));
+    }
     const issues = dumps.flatMap(d => d.issues.map(i => `dump ${d.index}: ${i}`));
-    if (issues.length) {
+    if (issues.length && !quality.length) {
       root.appendChild(el("div", { class: "card" },
           `<b>Parse notes</b> <span class="badge">${issues.length}</span>` +
           `<div class="sub">${issues.map(esc).join("<br>")}</div>`));

@@ -137,6 +137,10 @@ public class AnalyzeCommand implements Callable<Integer> {
 
     @SuppressWarnings("unchecked")
     private void printSummary(DumpSeries series, Map<String, Object> result) {
+        for (Object o : (List<?>) result.getOrDefault("qualityNotes", List.of())) {
+            Map<String, Object> n = (Map<String, Object>) o;
+            System.out.printf("  quality [%s]: %s%n", n.get("level"), n.get("message"));
+        }
         System.out.printf("Parsed %d dump(s):%n", series.size());
         List<Map<String, Object>> dumps = (List<Map<String, Object>>) (List<?>) (List<Object>) result.get("dumps");
         for (Map<String, Object> d : dumps) {

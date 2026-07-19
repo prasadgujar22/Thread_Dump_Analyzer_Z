@@ -153,6 +153,7 @@ public final class HotSpotParser {
         // ---- synchronizers section (follows the blank line after a thread's stack) ----
         if (trimmed.startsWith("Locked ownable synchronizers")) {
             inSynchronizers = true;
+            dump.markSynchronizerSection();
             return;
         }
         if (inSynchronizers) {

@@ -83,6 +83,12 @@ public final class AnalysisEngine {
         }
         root.put("dumps", dumps);
 
+        List<Object> quality = new ArrayList<>();
+        for (var note : new com.tda.core.analysis.DumpQualityValidator().validate(series)) {
+            quality.add(Map.of("level", note.level(), "message", note.message()));
+        }
+        root.put("qualityNotes", quality);
+
         SeriesResults sr = analyzeSeries(series, pools, graphs, topH, baselineDoc);
         root.put("series", sr.json);
 

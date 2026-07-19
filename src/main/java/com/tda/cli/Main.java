@@ -7,7 +7,8 @@ import picocli.CommandLine.Command;
         mixinStandardHelpOptions = true,
         version = "tda " + com.tda.core.AnalysisEngine.VERSION,
         description = "Enterprise Java thread dump analyzer - fully offline.",
-        subcommands = {AnalyzeCommand.class, ServeCommand.class})
+        subcommands = {AnalyzeCommand.class, ServeCommand.class,
+                CaptureCommand.class, WatchCommand.class})
 public final class Main implements Runnable {
 
     @Override
