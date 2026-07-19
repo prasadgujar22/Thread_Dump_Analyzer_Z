@@ -1,0 +1,138 @@
+# TDA frame-meanings knowledge base: frame patterns -> what the thread is doing, in
+# plain English. Same override mechanics as idle-patterns.yaml: extend per site with
+#   tda analyze ... --frame-meanings my-meanings.yaml
+# (user entries match first; a same-name entry replaces the bundled one).
+#
+# Categories: db-wait, db-pool-wait, mq-wait, http-wait, cache-wait, orm, kafka,
+#             ws-call, file-io, crypto, logging
+meanings:
+  - name: oracle-jdbc-read
+    category: db-wait
+    activity: waiting on an Oracle JDBC response
+    narrative: The thread sent a statement to Oracle and is blocked reading the reply from the network.
+    frames:
+      - oracle.jdbc.driver
+      - oracle.net.ns.
+      - T4CPreparedStatement
+      - T4CStatement
+  - name: generic-jdbc
+    category: db-wait
+    activity: executing a JDBC statement
+    narrative: Inside the JDBC driver executing a statement against the database.
+    frames:
+      - com.mysql.cj.jdbc
+      - org.postgresql.core
+      - com.microsoft.sqlserver.jdbc
+  - name: hikari-borrow
+    category: db-pool-wait
+    activity: waiting to borrow a connection from HikariCP
+    narrative: The pool has no free connection; the thread queues until one is returned.
+    frames:
+      - com.zaxxer.hikari.util.ConcurrentBag.borrow
+      - com.zaxxer.hikari.pool.HikariPool.getConnection
+  - name: ucp-borrow
+    category: db-pool-wait
+    activity: waiting to borrow a connection from Oracle UCP
+    narrative: The pool has no free connection; the thread queues until one is returned.
+    frames:
+      - oracle.ucp.jdbc.PoolDataSourceImpl.getConnection
+      - oracle.ucp.common.UniversalConnectionPoolBase.borrowConnection
+  - name: weblogic-jdbc-reserve
+    category: db-pool-wait
+    activity: waiting for a WebLogic JDBC connection
+    narrative: Waiting on the WebLogic data source's connection reserve.
+    frames:
+      - weblogic.jdbc.common.internal.ConnectionPool.reserve
+      - weblogic.common.resourcepool.ResourcePoolImpl.reserveResource
+  - name: ibm-mq
+    category: mq-wait
+    activity: waiting on an IBM MQ operation
+    narrative: Blocked in the MQ client, typically a GET waiting for a message or a reply.
+    frames:
+      - com.ibm.mq.
+      - com.ibm.msg.client
+  - name: kafka-poll
+    category: kafka
+    activity: polling Kafka for records
+    narrative: The consumer is in poll(), waiting for the broker to return records.
+    frames:
+      - org.apache.kafka.clients.consumer.KafkaConsumer.poll
+      - org.apache.kafka.common.network.Selector.poll
+  - name: redis-client
+    category: cache-wait
+    activity: waiting on a Redis response
+    narrative: Blocked in the Redis client waiting for the server's reply.
+    frames:
+      - redis.clients.jedis
+      - io.lettuce.core.protocol
+  - name: apache-httpclient
+    category: http-wait
+    activity: waiting on an HTTP response (Apache HttpClient)
+    narrative: The request was sent; the thread is blocked reading the response.
+    frames:
+      - org.apache.http.impl.conn
+      - org.apache.http.impl.io.SessionInputBufferImpl
+      - org.apache.hc.client5
+  - name: okhttp
+    category: http-wait
+    activity: waiting on an HTTP response (OkHttp)
+    narrative: The request was sent; the thread is blocked reading the response.
+    frames:
+      - okhttp3.internal
+      - okio.Okio
+  - name: jdk-httpclient
+    category: http-wait
+    activity: waiting on an HTTP response (java.net.http)
+    narrative: Blocked waiting for the HTTP response future to complete.
+    frames:
+      - jdk.internal.net.http
+  - name: hibernate-flush
+    category: orm
+    activity: flushing the Hibernate session
+    narrative: Hibernate is dirty-checking and writing pending entity changes.
+    frames:
+      - org.hibernate.event.internal.DefaultFlushEventListener
+      - org.hibernate.internal.SessionImpl.flush
+      - org.hibernate.engine.spi.ActionQueue
+  - name: hibernate-load
+    category: orm
+    activity: loading entities via Hibernate
+    narrative: Executing an ORM query or lazy-load.
+    frames:
+      - org.hibernate.loader
+      - org.hibernate.internal.SessionImpl.find
+  - name: jaxws-call
+    category: ws-call
+    activity: invoking a SOAP/web-service endpoint
+    narrative: Waiting for a remote web-service call to return.
+    frames:
+      - org.apache.cxf.interceptor
+      - com.sun.xml.ws.client
+      - javax.xml.ws.Service
+  - name: file-io
+    category: file-io
+    activity: reading/writing a file
+    narrative: Blocked in file I/O; slow disks or NFS make this a hot spot.
+    frames:
+      - java.io.FileInputStream.readBytes
+      - java.io.FileOutputStream.writeBytes
+      - java.io.RandomAccessFile.readBytes
+      - sun.nio.ch.FileChannelImpl
+      - sun.nio.ch.FileDispatcherImpl
+  - name: crypto
+    category: crypto
+    activity: performing cryptographic work
+    narrative: In TLS handshakes or cipher operations; check for SecureRandom entropy stalls.
+    frames:
+      - sun.security.ssl.
+      - javax.crypto.
+      - java.security.SecureRandom
+  - name: logging-write
+    category: logging
+    activity: writing a log record
+    narrative: Inside the logging framework's appender writing to its sink.
+    frames:
+      - org.apache.log4j.
+      - org.apache.logging.log4j.core.appender
+      - ch.qos.logback.core
+      - java.util.logging.Logger

@@ -2,7 +2,9 @@ package com.tda.cli;
 
 import com.tda.core.AnalysisEngine;
 import com.tda.core.AnalysisOptions;
+import com.tda.core.analysis.classify.FrameMeanings;
 import com.tda.core.analysis.classify.IdlePatterns;
+import com.tda.core.analysis.pattern.Rule;
 import com.tda.core.json.Json;
 import com.tda.core.json.JsonParser;
 import com.tda.core.model.DumpSeries;
@@ -75,6 +77,16 @@ public class AnalyzeCommand implements Callable<Integer> {
                     + "entries match first and same-name entries override the built-ins.")
     Path idlePatternsFile;
 
+    @Option(names = "--frame-meanings", paramLabel = "<file>",
+            description = "Extra frame-meanings YAML (what-is-this-thread-doing labels); "
+                    + "same override mechanics as --idle-patterns.")
+    Path frameMeaningsFile;
+
+    @Option(names = "--rules", paramLabel = "<file>",
+            description = "Site rule pack(s) on the rules.yaml DSL, repeatable; a rule with a "
+                    + "bundled id overrides it. Validate first with `tda rules validate`.")
+    List<Path> ruleFiles;
+
     @Option(names = "--critical-victims", paramLabel = "<n>", defaultValue = "5",
             description = "Threads blocked behind one holder before a finding escalates to CRITICAL (default: ${DEFAULT-VALUE}).")
     int criticalVictims;
@@ -105,7 +117,11 @@ public class AnalyzeCommand implements Callable<Integer> {
         IdlePatterns idlePatterns = idlePatternsFile != null
                 ? IdlePatterns.withUserFile(idlePatternsFile)
                 : IdlePatterns.loadDefault();
-        AnalysisEngine engine = new AnalysisEngine(opts, idlePatterns);
+        FrameMeanings meanings = frameMeaningsFile != null
+                ? FrameMeanings.withUserFile(frameMeaningsFile)
+                : FrameMeanings.loadDefault();
+        List<Rule> rules = Rule.merged(ruleFiles);
+        AnalysisEngine engine = new AnalysisEngine(opts, idlePatterns, meanings, rules);
 
         Map<String, Object> baseline = null;
         if (baselineIn != null) {

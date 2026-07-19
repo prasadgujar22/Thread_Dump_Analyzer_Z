@@ -10,6 +10,16 @@ const TDA = (() => {
     BLOCKED: "--st-blocked", NEW: "--st-new", TERMINATED: "--st-gray", UNKNOWN: "--st-gray"
   };
 
+  let meaningsCatalog = []; // frame-meanings for tree annotation (set per render)
+  function frameMeaning(frame) {
+    for (const m of meaningsCatalog) {
+      for (const needle of m.frames) {
+        if (frame.includes(needle)) return m;
+      }
+    }
+    return null;
+  }
+
   let charts = [];          // live ECharts instances (disposed on re-render)
   let rebuilders = [];      // functions to rebuild charts on theme change
 
@@ -608,6 +618,16 @@ const TDA = (() => {
           `<h3>Thread pools</h3><table><thead><tr><th>Pool</th><th class="num">Threads</th>` +
           `<th>States</th><th class="num">[STUCK]</th></tr></thead><tbody>${rows}</tbody></table>`));
     }
+    // "where is the time going": activity-category breakdown
+    if (Object.keys(d.categories || {}).length) {
+      const rows = Object.entries(d.categories).sort((a, b) => b[1] - a[1]).map(([c, n]) =>
+          `<tr><td><span class="badge">${esc(c)}</span></td><td class="num">${n}</td></tr>`).join("");
+      root.appendChild(el("div", { class: "card tablewrap" },
+          `<h3>Where is the time going</h3><p class="sub">Thread counts by recognized activity ` +
+          `(frame-meanings knowledge base; unrecognized threads are not shown).</p>` +
+          `<table><thead><tr><th>Category</th><th class="num">Threads</th></tr></thead>` +
+          `<tbody>${rows}</tbody></table>`));
+    }
     // top recurring stacks
     if ((d.topStacks || []).length) {
       const cards = d.topStacks.map(g => {
@@ -693,8 +713,10 @@ const TDA = (() => {
       const label2 = chain.length > 1
           ? `${esc(chain[0].split("(")[0])} <span class="sub">… ${chain.length - 1} more</span>`
           : esc(frame.split("(")[0]);
+      const meaning = frameMeaning(chain[chain.length - 1]);
       det.appendChild(el("summary", null,
-          `<span class="badge">${cur.count}</span> <span class="mono">${label2}</span>`));
+          `<span class="badge">${cur.count}</span> <span class="mono">${label2}</span>` +
+          (meaning ? ` <span class="badge" title="${esc(meaning.activity)}">${esc(meaning.category)}</span>` : "")));
       if (chain.length > 1) {
         det.appendChild(el("pre", { class: "frames" }, esc(chain.join("\n"))));
       }
@@ -763,7 +785,8 @@ const TDA = (() => {
         shown++;
         rows.push(`<tr><td>${esc(t.name)}${t.daemon ? ' <span class="badge">daemon</span>' : ""}</td>` +
             `<td>${stateChip(t.state)}</td>` +
-            `<td class="sub">${esc(t["class"] || "")}</td>` +
+            `<td class="sub">${esc(t["class"] || "")}${t.activity ? (t["class"] ? " · " : "") +
+                esc(t.activity) + ` <span class="badge">${esc(t.category)}</span>` : ""}</td>` +
             `<td class="sub">${esc(t.pool || "")}</td>` +
             `<td class="num">${t.prio != null ? t.prio : ""}</td>` +
             `<td class="mono">${esc(t.nid || "")}</td>` +
@@ -790,6 +813,7 @@ const TDA = (() => {
       root.appendChild(el("p", { class: "err" }, "No thread dumps found in the input."));
       return;
     }
+    meaningsCatalog = data.meaningsCatalog || [];
     metaSection(root, data);
     findingsSection(root, data);
     chartsSection(root, data);

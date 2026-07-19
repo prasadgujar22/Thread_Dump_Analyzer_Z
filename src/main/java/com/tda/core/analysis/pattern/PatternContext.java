@@ -20,5 +20,9 @@ public record PatternContext(
         List<PersistentLockHolders.Holder> lockHolders,
         List<PoolTrend.Trend> poolTrends,
         List<GcLogParser.PauseWindow> gcPauses,        // from --gc-log; empty when absent
+        List<PoolUtil> poolUtilization,                // busy/idle utilization per pool
         AnalysisOptions options) {
+
+    /** Observed utilization of one pool across the series (busy = not idle-classified). */
+    public record PoolUtil(String pool, double avgBusyPct, int maxSize, int blockedSeen) {}
 }

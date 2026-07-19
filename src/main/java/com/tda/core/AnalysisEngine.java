@@ -1,10 +1,12 @@
 package com.tda.core;
 
+import com.tda.core.analysis.classify.FrameMeanings;
 import com.tda.core.analysis.classify.IdlePatterns;
 import com.tda.core.analysis.classify.ThreadClassifier;
 import com.tda.core.analysis.pattern.Finding;
 import com.tda.core.analysis.pattern.PatternContext;
 import com.tda.core.analysis.pattern.PatternLibrary;
+import com.tda.core.analysis.pattern.Rule;
 import com.tda.core.analysis.series.Baseline;
 import com.tda.core.analysis.series.StuckClassifier;
 import com.tda.core.analysis.series.PersistentLockHolders;
@@ -45,15 +47,24 @@ public final class AnalysisEngine {
 
     private final AnalysisOptions options;
     private final ThreadClassifier classifier;
+    private final FrameMeanings meanings;
+    private final List<Rule> rules;
 
     public AnalysisEngine(AnalysisOptions options) {
-        this(options, null);
+        this(options, null, null, null);
     }
 
-    /** @param idlePatterns idle-pattern knowledge base; null uses the bundled defaults. */
     public AnalysisEngine(AnalysisOptions options, IdlePatterns idlePatterns) {
+        this(options, idlePatterns, null, null);
+    }
+
+    /** null idlePatterns/meanings/rules fall back to the bundled defaults. */
+    public AnalysisEngine(AnalysisOptions options, IdlePatterns idlePatterns,
+                          FrameMeanings meanings, List<Rule> rules) {
         this.options = options;
         this.classifier = new ThreadClassifier(idlePatterns);
+        this.meanings = meanings != null ? meanings : FrameMeanings.loadDefault();
+        this.rules = rules != null ? rules : Rule.loadBundled();
     }
 
     public Map<String, Object> analyze(DumpSeries series, List<TopHSample> topH) {
@@ -124,9 +135,17 @@ public final class AnalysisEngine {
         }
 
         PatternContext ctx = new PatternContext(series, graphs, deadlocksPerDump,
-                verdicts, sr.holders, sr.trends, gcPauses, options);
+                verdicts, sr.holders, sr.trends, gcPauses, poolUtilization(series, pools), options);
         List<Object> findings = new ArrayList<>();
-        for (Finding f : new PatternLibrary().run(ctx)) findings.add(f.toJson());
+        for (Finding f : new PatternLibrary(rules).run(ctx)) findings.add(f.toJson());
+
+        // compact meanings catalog so the report can annotate call-stack tree nodes
+        List<Object> catalog = new ArrayList<>();
+        for (FrameMeanings.Meaning m : meanings.entries()) {
+            catalog.add(Map.of("category", m.category(), "activity", m.activity(),
+                    "frames", m.frames()));
+        }
+        root.put("meaningsCatalog", catalog);
         root.put("findings", findings);
         return root;
     }
@@ -386,9 +405,25 @@ public final class AnalysisEngine {
             p.states().forEach((k, v) -> st.put(k.name(), v));
             row.put("states", st);
             row.put("stuck", p.stuckCount());
+            // work-manager utilization: busy = not idle-classified (Rule 1 knowledge base)
+            int busy = 0;
+            for (String name : p.threadNames()) {
+                ThreadInfo t = d.findByName(name);
+                if (t != null && classifier.classify(t).kind() == ThreadClassifier.Kind.APPLICATION) busy++;
+            }
+            row.put("busy", busy);
+            row.put("idle", p.count() - busy);
             poolRows.add(row);
         }
         m.put("pools", poolRows);
+
+        // "where is the time going": thread counts per activity category
+        Map<String, Integer> categories = new LinkedHashMap<>();
+        for (ThreadInfo t : d.javaThreads()) {
+            FrameMeanings.Meaning me = meanings.meaningFor(t);
+            if (me != null) categories.merge(me.category(), 1, Integer::sum);
+        }
+        m.put("categories", categories);
 
         List<Object> stackGroups = new ArrayList<>();
         for (StackDeduplicator.Group g : new StackDeduplicator()
@@ -493,6 +528,11 @@ public final class AnalysisEngine {
             if (pool != null) row.put("pool", pool);
             ThreadClassifier.Classification cls = classifier.classify(t);
             if (cls.label() != null) row.put("class", cls.label());
+            FrameMeanings.Meaning meaning = meanings.meaningFor(t);
+            if (meaning != null) {
+                row.put("activity", meaning.activity());
+                row.put("category", meaning.category());
+            }
             if (t.isVirtual()) {
                 row.put("virtual", true);
                 if (t.carrierTid() != null) row.put("carrier", t.carrierTid());
@@ -527,6 +567,34 @@ public final class AnalysisEngine {
 
     private static List<String> cap(List<String> in, int max) {
         return in.size() <= max ? in : in.subList(0, max);
+    }
+
+    /** Observed busy/idle utilization per pool across the series (Rule-1 classification). */
+    private List<PatternContext.PoolUtil> poolUtilization(DumpSeries series, PoolGrouper pools) {
+        Map<String, int[]> agg = new LinkedHashMap<>(); // pool -> [busySum, totalSum, maxSize, blocked]
+        for (ThreadDump d : series.dumps()) {
+            for (PoolGrouper.PoolStats p : pools.analyze(d)) {
+                int[] a = agg.computeIfAbsent(p.pool(), k -> new int[4]);
+                int busy = 0;
+                for (String name : p.threadNames()) {
+                    ThreadInfo t = d.findByName(name);
+                    if (t != null && classifier.classify(t).kind() == ThreadClassifier.Kind.APPLICATION) {
+                        busy++;
+                    }
+                }
+                a[0] += busy;
+                a[1] += p.count();
+                a[2] = Math.max(a[2], p.count());
+                a[3] += p.states().getOrDefault(com.tda.core.model.ThreadState.BLOCKED, 0);
+            }
+        }
+        List<PatternContext.PoolUtil> out = new ArrayList<>();
+        for (Map.Entry<String, int[]> e : agg.entrySet()) {
+            int[] a = e.getValue();
+            if (a[1] == 0) continue;
+            out.add(new PatternContext.PoolUtil(e.getKey(), 100.0 * a[0] / a[1], a[2], a[3]));
+        }
+        return out;
     }
 
     private static List<Object> topCounts(Map<String, Integer> counts, int n) {

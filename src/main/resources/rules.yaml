@@ -1,0 +1,86 @@
+# TDA bundled detection rules - the frame-scan built-ins, expressed on the same rules DSL
+# available to users via --rules. A user rule with the same id overrides the bundled one.
+#
+# Schema (see README "Rules DSL"):
+#   - id: unique finding id
+#     title: text; {count} and {dump} placeholders are filled in
+#     severity: info|warning|critical      # the CAP (Rule 5 still applies)
+#     warnThreads: N        # optional: below N matches the finding degrades to INFO
+#     criticalThreads: N    # optional: matches needed to actually reach a CRITICAL cap
+#     recommendation: text
+#     match:
+#       frames:             # any stack frame containing any needle
+#         - substring
+#       threadNameRegex: "regex"          # optional, full-name match
+#       states:                           # optional, restricts thread states
+#         - BLOCKED
+#       minThreads: N       # per-dump floor (default 1)
+#       persistDumps: K     # optional: same thread must match in >= K consecutive dumps
+#       cpuDelta: any|zero|spinning       # optional: needs cpu= fields (JDK 11+)
+rules:
+  - id: connection-pool-exhaustion
+    title: "{count} threads waiting for a database connection"
+    severity: critical
+    criticalThreads: 10
+    recommendation: Check what the threads that DO hold connections are executing (often stuck in socketRead0 on a slow query). Review pool max size vs. concurrent workers, enable leak detection (HikariCP leakDetectionThreshold, UCP InactiveConnectionTimeout, WebLogic Inactive Connection Timeout), and set statement timeouts so one slow query cannot pin a connection forever.
+    match:
+      frames:
+        - com.zaxxer.hikari.util.ConcurrentBag.borrow
+        - com.zaxxer.hikari.pool.HikariPool.getConnection
+        - oracle.ucp.jdbc.PoolDataSourceImpl.getConnection
+        - oracle.ucp.common.UniversalConnectionPoolBase.borrowConnection
+        - weblogic.jdbc.common.internal.ConnectionPool.reserve
+        - weblogic.common.resourcepool.ResourcePoolImpl.reserveResource
+        - org.apache.commons.dbcp2.PoolingDataSource.getConnection
+        - org.apache.commons.pool2.impl.GenericObjectPool.borrowObject
+        - org.apache.tomcat.jdbc.pool.ConnectionPool.borrowConnection
+        - com.mchange.v2.resourcepool.BasicResourcePool.awaitAvailable
+      states:
+        - WAITING
+        - TIMED_WAITING
+        - BLOCKED
+      minThreads: 3
+  - id: sync-logging-bottleneck
+    title: "{count} threads BLOCKED on synchronized logging"
+    severity: critical
+    criticalThreads: 10
+    recommendation: Switch to async logging (Log4j2 AsyncAppender/AsyncLogger, Logback AsyncAppender) or reduce log volume on hot paths. Never log to console in production - stdout is often the slowest sink.
+    match:
+      frames:
+        - org.apache.log4j.Category.callAppenders
+        - org.apache.log4j.AppenderSkeleton.doAppend
+        - org.apache.logging.log4j.core.appender.OutputStreamManager
+        - ch.qos.logback.core.OutputStreamAppender
+        - ch.qos.logback.core.AppenderBase.doAppend
+        - java.util.logging.Logger.log
+        - java.util.logging.StreamHandler.publish
+      states:
+        - BLOCKED
+      minThreads: 3
+  - id: classloader-contention
+    title: "{count} threads BLOCKED in class loading"
+    severity: warning
+    recommendation: Warm the application before admitting traffic, make custom classloaders parallel-capable (registerAsParallelCapable), and cache Class.forName / reflection lookups instead of resolving per request.
+    match:
+      frames:
+        - java.lang.ClassLoader.loadClass
+        - .loadClass
+      states:
+        - BLOCKED
+      minThreads: 3
+  - id: exception-processing
+    title: "{count} thread(s) actively constructing/printing exceptions"
+    severity: warning
+    warnThreads: 5
+    recommendation: Find the exception source and fix the root cause or stop using exceptions on the hot path. -XX:+OmitStackTraceInFastThrow deduplicates in fast throw loops - stackless exceptions in the logs mean the storm has been running a while.
+    match:
+      frames:
+        - java.lang.Throwable.fillInStackTrace
+        - java.lang.Throwable.printStackTrace
+        - java.lang.Throwable.getStackTrace
+        - java.lang.Throwable.getOurStackTrace
+        - java.lang.ExceptionInInitializerError
+      states:
+        - RUNNABLE
+        - BLOCKED
+      minThreads: 1
