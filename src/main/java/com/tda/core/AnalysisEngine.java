@@ -204,6 +204,27 @@ public final class AnalysisEngine {
         }
         s.put("timelines", timelines);
 
+        // Full states-per-dump table for every matched thread (searchable in the UI).
+        if (series.size() > 1) {
+            List<Object> all = new ArrayList<>();
+            for (String key : index.keys()) {
+                ThreadInfo[] occ = index.occurrences().get(key);
+                List<Object> states = new ArrayList<>();
+                boolean any = false;
+                for (ThreadInfo t : occ) {
+                    if (t != null && t.isVmThread()) { states.add(null); continue; }
+                    states.add(t == null ? null : t.state().name());
+                    any |= t != null;
+                }
+                if (!any) continue;
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("name", index.displayName(key));
+                row.put("states", states);
+                all.add(row);
+            }
+            s.put("allTimelines", all);
+        }
+
         if (baselineDoc != null) {
             s.put("baselineDiff", new Baseline().diff(series, pools, options.topStacks, baselineDoc));
         }
@@ -228,6 +249,23 @@ public final class AnalysisEngine {
         m.put("totalThreads", dist.total());
         m.put("daemonThreads", dist.daemon());
         m.put("vmThreads", dist.vmThreads());
+
+        // GC/JIT sanity: worker counts, with a note when they look outsized
+        int gc = 0, jit = 0;
+        for (ThreadInfo t : d.threads()) {
+            String n = t.name();
+            if (n.startsWith("GC ") || n.startsWith("G1 ") || n.startsWith("ZGC")
+                    || n.startsWith("Shenandoah") || n.contains("(ParallelGC)")
+                    || n.startsWith("Gang worker") || n.startsWith("Concurrent Mark-Sweep")) gc++;
+            else if (n.contains("CompilerThread") || n.startsWith("Sweeper thread")) jit++;
+        }
+        m.put("gcThreads", gc);
+        m.put("jitThreads", jit);
+        if (gc >= 24 || jit >= 8) {
+            m.put("gcJitNote", "unusually many GC/JIT threads (" + gc + " GC, " + jit
+                    + " JIT) - check -XX:ParallelGCThreads/-XX:CICompilerCount vs the "
+                    + "container's actual CPU quota");
+        }
         Map<String, Object> states = new LinkedHashMap<>();
         dist.counts().forEach((k, v) -> states.put(k.name(), v));
         m.put("states", states);
@@ -291,6 +329,8 @@ public final class AnalysisEngine {
         }
         m.put("deadlocks", deadlocks);
 
+        Map<Long, TopHSample> topByPid = new LinkedHashMap<>();
+        if (topH != null) for (TopHSample s : topH) topByPid.put(s.pid(), s);
         List<Object> cpu = new ArrayList<>();
         List<CpuAttribution.Row> cpuRows = new CpuAttribution().analyze(d, topH);
         for (int i = 0; i < cpuRows.size() && i < 40; i++) {
@@ -303,9 +343,24 @@ public final class AnalysisEngine {
             row.put("cpuMillis", r.cpuMillis());
             row.put("elapsedSeconds", r.elapsedSeconds());
             row.put("topPercent", r.cpuPercentFromTop());
+            TopHSample s = topByPid.get(r.nidDecimal());
+            if (s != null && s.memPercent() > 0) row.put("topMemPercent", s.memPercent());
             cpu.add(row);
         }
         m.put("cpu", cpu);
+
+        // fastThread-style method stats: where threads are executing right now (top frame)
+        // and which methods appear anywhere in the stacks
+        Map<String, Integer> lastExecuted = new LinkedHashMap<>();
+        Map<String, Integer> mostUsed = new LinkedHashMap<>();
+        for (ThreadInfo t : d.javaThreads()) {
+            if (t.frames().isEmpty()) continue;
+            lastExecuted.merge(t.frames().get(0).signature(), 1, Integer::sum);
+            for (StackFrame f : t.frames()) mostUsed.merge(f.signature(), 1, Integer::sum);
+        }
+        m.put("methodStats", Map.of(
+                "lastExecuted", topCounts(lastExecuted, 15),
+                "mostUsed", topCounts(mostUsed, 15)));
 
         List<String> issues = new ArrayList<>();
         for (ParseIssue i : d.issues()) issues.add(i.toString());
@@ -361,5 +416,14 @@ public final class AnalysisEngine {
 
     private static List<String> cap(List<String> in, int max) {
         return in.size() <= max ? in : in.subList(0, max);
+    }
+
+    private static List<Object> topCounts(Map<String, Integer> counts, int n) {
+        List<Object> out = new ArrayList<>();
+        counts.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                .limit(n)
+                .forEach(e -> out.add(Map.of("method", e.getKey(), "count", e.getValue())));
+        return out;
     }
 }

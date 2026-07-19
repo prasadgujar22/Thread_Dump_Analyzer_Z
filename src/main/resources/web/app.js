@@ -303,10 +303,16 @@ const TDA = (() => {
         el("div", { class: "tile" }, `<div class="v ${cls || ""}">${v}</div><div class="l">${l}</div>`));
     tile(dumps.length, "dump" + (dumps.length > 1 ? "s" : ""));
     tile(last.totalThreads, "threads (last dump)");
+    tile(`${last.daemonThreads} / ${last.totalThreads - last.daemonThreads}`, "daemon / non-daemon");
+    if (last.gcThreads !== undefined) {
+      tile(`${last.gcThreads} · ${last.jitThreads}`, "GC · JIT threads");
+    }
     tile(sev.CRITICAL, "critical findings", sev.CRITICAL ? "leak" : "");
     tile(sev.WARNING, "warnings");
     tile(sev.INFO, "info");
     root.appendChild(tiles);
+    const gcNote = dumps.map(d => d.gcJitNote).find(Boolean);
+    if (gcNote) root.appendChild(el("p", { class: "sub" }, "⚠ " + esc(gcNote)));
     root.appendChild(el("p", { class: "sub" },
         `${esc(range)} · ${esc(last.banner || "")} · generated ${esc(data.generatedAt)}`));
     const issues = dumps.flatMap(d => d.issues.map(i => `dump ${d.index}: ${i}`));
@@ -358,6 +364,49 @@ const TDA = (() => {
           STATE_ORDER.slice(0, 4).map(stateChip).join("   ")));
       swimlaneChart(root.appendChild(el("div", { class: "card" })), timelines, dumps);
     }
+    const allTimelines = (data.series && data.series.allTimelines) || [];
+    if (allTimelines.length && dumps.length > 1) {
+      root.appendChild(el("h2", null, "All threads — state per dump"));
+      allStatesTable(root, allTimelines, dumps);
+    }
+  }
+
+  // Searchable states-per-dump table covering every matched thread (not just flagged ones).
+  function allStatesTable(root, rows, dumps) {
+    const card = el("div", { class: "card" });
+    root.appendChild(card);
+    const controls = el("div", { class: "controls" });
+    const q = el("input", { type: "text", placeholder: "filter by thread name…" });
+    const st = el("select");
+    st.appendChild(el("option", { value: "" }, "any state in any dump"));
+    STATE_ORDER.forEach(s => st.appendChild(el("option", { value: s }, s)));
+    const count = el("span", { class: "sub" });
+    controls.appendChild(q); controls.appendChild(st); controls.appendChild(count);
+    card.appendChild(controls);
+    const wrap = el("div", { class: "tablewrap" });
+    card.appendChild(wrap);
+    const renderTable = () => {
+      const needle = q.value.toLowerCase();
+      const body = [];
+      let shown = 0, total = 0;
+      for (const r of rows) {
+        if (needle && !r.name.toLowerCase().includes(needle)) continue;
+        if (st.value && !r.states.includes(st.value)) continue;
+        total++;
+        if (shown >= 300) continue;
+        shown++;
+        const cells = r.states.map(s =>
+            `<td>${s ? stateChip(s) : '<span class="sub">—</span>'}</td>`).join("");
+        body.push(`<tr><td>${esc(trunc(r.name, 70))}</td>${cells}</tr>`);
+      }
+      count.textContent = shown < total ? `showing ${shown} of ${total}` : `${total} thread(s)`;
+      wrap.innerHTML = `<table><thead><tr><th>Thread</th>` +
+          dumps.map(d => `<th>${esc(dumpLabel(d))}</th>`).join("") +
+          `</tr></thead><tbody>${body.join("")}</tbody></table>`;
+    };
+    q.addEventListener("input", renderTable);
+    st.addEventListener("change", renderTable);
+    renderTable();
   }
 
   function seriesSection(root, data) {
@@ -368,10 +417,16 @@ const TDA = (() => {
       const rows = stuck.map(st =>
           `<tr><td>${esc(st.name)}</td><td class="num">${st.fromDump}–${st.toDump}</td>` +
           `<td class="num">${st.dumpsUnchanged}</td><td>${st.states.map(stateChip).join(" ")}</td>` +
-          `<td>${stackDetails(st.frozenFrames, "frozen stack")}</td></tr>`).join("");
+          `<td><span class="badge">${esc(st.verdict || "")}</span> ` +
+          `<span class="sub">${esc(st.confidence || "")}</span></td>` +
+          `<td class="num">${st.cpuDeltaMillis != null ? st.cpuDeltaMillis.toFixed(0) + "ms"
+              + (st.wallClockSeconds != null ? " / " + st.wallClockSeconds.toFixed(0) + "s" : "") : ""}</td>` +
+          `<td>${stackDetails(st.frozenFrames, "frozen stack")}` +
+          (st.why ? `<div class="sub">${esc(st.why)}</div>` : "") + `</td></tr>`).join("");
       root.appendChild(el("div", { class: "card tablewrap" },
           `<table><thead><tr><th>Thread</th><th class="num">Dumps</th><th class="num">Unchanged</th>` +
-          `<th>States</th><th>Evidence</th></tr></thead><tbody>${rows}</tbody></table>`));
+          `<th>States</th><th>Verdict</th><th class="num">cpuΔ / wall</th><th>Evidence</th>` +
+          `</tr></thead><tbody>${rows}</tbody></table>`));
     }
     const holders = s.persistentLockHolders || [];
     if (holders.length) {
@@ -446,6 +501,9 @@ const TDA = (() => {
     flameChart(fc, d);
     blockerTree(bc, d);
 
+    callStackTree(root, d);
+    methodStats(root, d);
+
     // pools
     if ((d.pools || []).length) {
       const rows = d.pools.map(p => {
@@ -480,29 +538,113 @@ const TDA = (() => {
     }
     // cpu
     if ((d.cpu || []).length) {
+      const hasMem = d.cpu.some(c => c.topMemPercent != null);
       const rows = d.cpu.slice(0, 20).map(c =>
           `<tr><td>${esc(c.thread)}</td><td class="mono">${esc(c.nid)} / ${c.nidDec}</td>` +
           `<td>${stateChip(c.state)}</td>` +
           `<td class="num">${c.topPercent != null ? c.topPercent + "%" : ""}</td>` +
+          (hasMem ? `<td class="num">${c.topMemPercent != null ? c.topMemPercent + "%" : ""}</td>` : "") +
           `<td class="num">${c.cpuMillis != null ? (c.cpuMillis / 1000).toFixed(1) + "s" : ""}</td>` +
           `<td class="num">${c.elapsedSeconds != null ? c.elapsedSeconds.toFixed(0) + "s" : ""}</td></tr>`).join("");
       root.appendChild(el("div", { class: "card tablewrap" },
           `<h3>CPU attribution <span class="sub">(cpu= header fields and/or top -H join on nid)</span></h3>` +
           `<table><thead><tr><th>Thread</th><th>nid hex/dec</th><th>State</th><th class="num">top %CPU</th>` +
+          (hasMem ? `<th class="num">top %MEM</th>` : "") +
           `<th class="num">cpu=</th><th class="num">elapsed=</th></tr></thead><tbody>${rows}</tbody></table>`));
     }
     threadBrowser(root, d);
+  }
+
+  // Consolidated expandable call-stack tree over all threads (complement to the flame graph).
+  function callStackTree(root, d) {
+    const trie = { count: 0, children: new Map() };
+    for (const t of d.threads) {
+      const frames = t.stack ? d.stacks[t.stack] : null;
+      if (!frames || !frames.length) continue;
+      trie.count++;
+      let node = trie;
+      for (const f of [...frames].reverse().slice(0, 40)) {
+        let c = node.children.get(f);
+        if (!c) { c = { count: 0, children: new Map() }; node.children.set(f, c); }
+        c.count++;
+        node = c;
+      }
+    }
+    if (!trie.count) return;
+    const card = el("div", { class: "card" },
+        `<h3>Call stack tree</h3><p class="sub">All ${trie.count} stacks merged from the root ` +
+        `frame down; counts show how many threads share each path. Chains with a single child ` +
+        `are collapsed into one node.</p>`);
+    root.appendChild(card);
+    const budget = { nodes: 0 };
+    card.appendChild(treeNode(trie, null, budget, true));
+    if (budget.nodes >= 3000) {
+      card.appendChild(el("p", { class: "sub" }, "…tree truncated at 3000 nodes; use the flame graph or filters for the rest."));
+    }
+  }
+
+  function treeNode(node, label, budget, open) {
+    const box = el("div");
+    const entries = [...node.children.entries()].sort((a, b) => b[1].count - a[1].count);
+    for (const [frame, child] of entries) {
+      if (budget.nodes++ > 3000) break;
+      // collapse single-child chains into one summary line
+      let chain = [frame];
+      let cur = child;
+      while (cur.children.size === 1 && [...cur.children.values()][0].count === cur.count) {
+        const [f2, c2] = [...cur.children.entries()][0];
+        chain.push(f2);
+        cur = c2;
+      }
+      const det = el("details", { class: "stack" });
+      if (open && entries.length === 1) det.setAttribute("open", "");
+      const label2 = chain.length > 1
+          ? `${esc(chain[0].split("(")[0])} <span class="sub">… ${chain.length - 1} more</span>`
+          : esc(frame.split("(")[0]);
+      det.appendChild(el("summary", null,
+          `<span class="badge">${cur.count}</span> <span class="mono">${label2}</span>`));
+      if (chain.length > 1) {
+        det.appendChild(el("pre", { class: "frames" }, esc(chain.join("\n"))));
+      }
+      if (cur.children.size) det.appendChild(treeNode(cur, frame, budget, false));
+      box.appendChild(det);
+    }
+    return box;
+  }
+
+  // fastThread-style "where is the code right now" summaries.
+  function methodStats(root, d) {
+    const ms = d.methodStats;
+    if (!ms || (!ms.lastExecuted.length && !ms.mostUsed.length)) return;
+    const tbl = list => list.map(r =>
+        `<tr><td class="mono">${esc(r.method)}</td><td class="num">${r.count}</td></tr>`).join("");
+    root.appendChild(el("div", { class: "grid2" },
+        `<div class="card tablewrap"><h3>Last-executed methods <span class="sub">(top frame)</span></h3>` +
+        `<table><thead><tr><th>Method</th><th class="num">Threads</th></tr></thead>` +
+        `<tbody>${tbl(ms.lastExecuted)}</tbody></table></div>` +
+        `<div class="card tablewrap"><h3>Most-used methods <span class="sub">(any frame)</span></h3>` +
+        `<table><thead><tr><th>Method</th><th class="num">Occurrences</th></tr></thead>` +
+        `<tbody>${tbl(ms.mostUsed)}</tbody></table></div>`));
   }
 
   function threadBrowser(root, d) {
     const card = el("div", { class: "card" }, "<h3>All threads</h3>");
     root.appendChild(card);
     const controls = el("div", { class: "controls" });
-    const q = el("input", { type: "text", placeholder: "filter by name / frame…" });
+    const q = el("input", { type: "text",
+        placeholder: "filter by name, nid/tid, or class/package/method in the stack…" });
+    q.style.minWidth = "320px";
     const st = el("select");
     st.appendChild(el("option", { value: "" }, "any state"));
     STATE_ORDER.forEach(s => st.appendChild(el("option", { value: s }, s)));
-    controls.appendChild(q); controls.appendChild(st);
+    const dm = el("select");
+    [["", "daemon + non-daemon"], ["y", "daemon only"], ["n", "non-daemon only"]]
+        .forEach(([v, l]) => dm.appendChild(el("option", { value: v }, l)));
+    const pr = el("select");
+    pr.appendChild(el("option", { value: "" }, "any priority"));
+    [...new Set(d.threads.map(t => t.prio).filter(p => p != null))].sort((a, b) => a - b)
+        .forEach(p => pr.appendChild(el("option", { value: p }, "prio " + p)));
+    controls.appendChild(q); controls.appendChild(st); controls.appendChild(dm); controls.appendChild(pr);
     const count = el("span", { class: "sub" });
     controls.appendChild(count);
     card.appendChild(controls);
@@ -514,23 +656,34 @@ const TDA = (() => {
       let shown = 0, total = 0;
       for (const t of d.threads) {
         if (st.value && t.state !== st.value) continue;
+        if (dm.value === "y" && !t.daemon) continue;
+        if (dm.value === "n" && t.daemon) continue;
+        if (pr.value !== "" && String(t.prio) !== pr.value) continue;
         const frames = t.stack ? d.stacks[t.stack] : [];
-        if (needle && !t.name.toLowerCase().includes(needle)
-            && !(frames || []).some(f => f.toLowerCase().includes(needle))) continue;
+        if (needle) {
+          const hay = (t.name + " " + (t.nid || "") + " " + (t.nidDec || "") + " "
+              + (t.tid || "") + " " + (t["class"] || "")).toLowerCase();
+          if (!hay.includes(needle)
+              && !(frames || []).some(f => f.toLowerCase().includes(needle))) continue;
+        }
         total++;
         if (shown >= 400) continue;
         shown++;
         rows.push(`<tr><td>${esc(t.name)}${t.daemon ? ' <span class="badge">daemon</span>' : ""}</td>` +
-            `<td>${stateChip(t.state)}</td><td class="sub">${esc(t.pool || "")}</td>` +
+            `<td>${stateChip(t.state)}</td>` +
+            `<td class="sub">${esc(t["class"] || "")}</td>` +
+            `<td class="sub">${esc(t.pool || "")}</td>` +
+            `<td class="num">${t.prio != null ? t.prio : ""}</td>` +
             `<td class="mono">${esc(t.nid || "")}</td>` +
             `<td>${frames && frames.length ? stackDetails(frames, frames[0].split("(")[0]) : '<span class="sub">no Java stack</span>'}</td></tr>`);
       }
       count.textContent = shown < total ? `showing ${shown} of ${total}` : `${total} thread(s)`;
-      list.innerHTML = `<table><thead><tr><th>Name</th><th>State</th><th>Pool</th><th>nid</th><th>Stack</th></tr></thead>` +
+      list.innerHTML = `<table><thead><tr><th>Name</th><th>State</th><th>Class</th><th>Pool</th>` +
+                       `<th class="num">Prio</th><th>nid</th><th>Stack</th></tr></thead>` +
                        `<tbody>${rows.join("")}</tbody></table>`;
     };
     q.addEventListener("input", renderList);
-    st.addEventListener("change", renderList);
+    [st, dm, pr].forEach(x => x.addEventListener("change", renderList));
     renderList();
   }
 

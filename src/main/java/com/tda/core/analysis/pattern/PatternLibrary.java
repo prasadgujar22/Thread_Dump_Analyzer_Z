@@ -34,7 +34,8 @@ public final class PatternLibrary {
             new ClassloaderContentionPattern(),
             new FinalizerBacklogPattern(),
             new TopBlockerPattern(),
-            new ThreadLeakPattern());
+            new ThreadLeakPattern(),
+            new ExceptionProcessingPattern());
 
     public List<Finding> run(PatternContext ctx) {
         List<Finding> out = new ArrayList<>();
@@ -466,6 +467,46 @@ final class TopBlockerPattern implements Pattern {
             f.evidence("frames", frames);
         }
         return List.of(f);
+    }
+}
+
+/** Threads caught mid-exception: stack construction and printing are expensive at volume. */
+final class ExceptionProcessingPattern implements Pattern {
+    private static final String[] EXCEPTION_FRAMES = {
+            "java.lang.Throwable.fillInStackTrace",
+            "java.lang.Throwable.printStackTrace",
+            "java.lang.Throwable.getStackTrace",
+            "java.lang.StackTraceElement.of",
+            "java.lang.Throwable.getOurStackTrace",
+            "java.lang.ExceptionInInitializerError",
+    };
+
+    @Override public List<Finding> detect(PatternContext ctx) {
+        int worst = 0, worstDump = -1;
+        List<Frames.Match> worstMatches = List.of();
+        for (int i = 0; i < ctx.series().size(); i++) {
+            List<Frames.Match> m = Frames.scan(ctx.series().get(i),
+                    Set.of(ThreadState.RUNNABLE, ThreadState.BLOCKED), EXCEPTION_FRAMES);
+            if (m.size() > worst) { worst = m.size(); worstDump = i; worstMatches = m; }
+        }
+        if (worst == 0) return List.of();
+        return List.of(new Finding("exception-processing", worst >= 5 ? WARNING : INFO,
+                worst + " thread(s) actively constructing/printing exceptions",
+                "In dump " + worstDump + ", " + worst + " thread(s) were caught inside "
+                        + "fillInStackTrace/printStackTrace. One snapshot catching this is rare - "
+                        + "seeing it usually means exceptions are being thrown at very high volume "
+                        + "(exceptions-as-control-flow, retry storms, log-and-rethrow loops).",
+                "Find the exception source in the frames below and fix the root cause or stop "
+                        + "using exceptions on the hot path. As mitigation, JVMs deduplicate via "
+                        + "-XX:+OmitStackTraceInFastThrow - if your logs show stackless exceptions, "
+                        + "the storm has been running a while.")
+                .evidence("dump", worstDump)
+                .evidence("threads", Frames.names(worstMatches, 15))
+                .evidence("frame", worstMatches.isEmpty() ? "" : worstMatches.get(0).matchedFrame())
+                .evidence("confidence", worst >= 5 ? "high" : "low")
+                .evidence("whyNotFalsePositive", "fillInStackTrace frames are only on-stack during "
+                        + "actual exception construction - catching " + worst + " simultaneously "
+                        + "implies a sustained throw rate"));
     }
 }
 
