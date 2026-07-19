@@ -42,7 +42,25 @@ public final class TdaServer {
         server.createContext("/api/analyze", ex -> handleApi(ex, ApiKind.ANALYZE));
         server.createContext("/api/baseline", ex -> handleApi(ex, ApiKind.BASELINE));
         server.createContext("/api/report", ex -> handleApi(ex, ApiKind.REPORT));
+        // scripting endpoint: the most recent analysis of this session as JSON
+        server.createContext("/api/analysis", ex -> {
+            try (ex) {
+                Map<String, Object> last = lastAnalysis;
+                if (!"GET".equals(ex.getRequestMethod())) {
+                    respond(ex, 405, "text/plain", "GET only".getBytes(StandardCharsets.UTF_8));
+                } else if (last == null) {
+                    respond(ex, 404, "text/plain; charset=utf-8",
+                            "No analysis yet - POST files to /api/analyze first (or use the UI)."
+                                    .getBytes(StandardCharsets.UTF_8));
+                } else {
+                    respond(ex, 200, "application/json; charset=utf-8",
+                            Json.write(last).getBytes(StandardCharsets.UTF_8));
+                }
+            }
+        });
     }
+
+    private volatile Map<String, Object> lastAnalysis;
 
     public void start() { server.start(); }
     public void stop() { server.stop(0); }
@@ -59,6 +77,7 @@ public final class TdaServer {
             try {
                 Map<String, Object> req = JsonParser.parseObject(readBody(ex));
                 Map<String, Object> result = run(req, kind);
+                if (kind == ApiKind.ANALYZE) lastAnalysis = result;
                 if (kind == ApiKind.REPORT) {
                     String html = new HtmlReport().render(result, "Thread Dump Analysis");
                     respond(ex, 200, "text/html; charset=utf-8", html.getBytes(StandardCharsets.UTF_8));

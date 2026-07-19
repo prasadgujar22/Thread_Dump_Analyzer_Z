@@ -1,9 +1,12 @@
 package com.tda.core;
 
+import com.tda.core.analysis.classify.IdlePatterns;
+import com.tda.core.analysis.classify.ThreadClassifier;
 import com.tda.core.analysis.pattern.Finding;
 import com.tda.core.analysis.pattern.PatternContext;
 import com.tda.core.analysis.pattern.PatternLibrary;
 import com.tda.core.analysis.series.Baseline;
+import com.tda.core.analysis.series.StuckClassifier;
 import com.tda.core.analysis.series.PersistentLockHolders;
 import com.tda.core.analysis.series.PoolTrend;
 import com.tda.core.analysis.series.SeriesIndex;
@@ -40,9 +43,16 @@ public final class AnalysisEngine {
     public static final String VERSION = "1.0.0";
 
     private final AnalysisOptions options;
+    private final ThreadClassifier classifier;
 
     public AnalysisEngine(AnalysisOptions options) {
+        this(options, null);
+    }
+
+    /** @param idlePatterns idle-pattern knowledge base; null uses the bundled defaults. */
+    public AnalysisEngine(AnalysisOptions options, IdlePatterns idlePatterns) {
         this.options = options;
+        this.classifier = new ThreadClassifier(idlePatterns);
     }
 
     public Map<String, Object> analyze(DumpSeries series, List<TopHSample> topH) {
@@ -73,11 +83,11 @@ public final class AnalysisEngine {
         }
         root.put("dumps", dumps);
 
-        SeriesResults sr = analyzeSeries(series, pools, baselineDoc);
+        SeriesResults sr = analyzeSeries(series, pools, graphs, topH, baselineDoc);
         root.put("series", sr.json);
 
         PatternContext ctx = new PatternContext(series, graphs, deadlocksPerDump,
-                sr.stuck, sr.holders, sr.trends, options);
+                sr.verdicts, sr.holders, sr.trends, options);
         List<Object> findings = new ArrayList<>();
         for (Finding f : new PatternLibrary().run(ctx)) findings.add(f.toJson());
         root.put("findings", findings);
@@ -85,7 +95,7 @@ public final class AnalysisEngine {
     }
 
     private record SeriesResults(Map<String, Object> json,
-                                 List<StuckThreadDetector.Stuck> stuck,
+                                 List<StuckClassifier.Verdict> verdicts,
                                  List<PersistentLockHolders.Holder> holders,
                                  List<PoolTrend.Trend> trends) {}
 
@@ -95,16 +105,25 @@ public final class AnalysisEngine {
     }
 
     private SeriesResults analyzeSeries(DumpSeries series, PoolGrouper pools,
+                                        List<LockGraph> graphs, List<TopHSample> topH,
                                         Map<String, Object> baselineDoc) {
         Map<String, Object> s = new LinkedHashMap<>();
         SeriesIndex index = SeriesIndex.build(series);
 
-        List<StuckThreadDetector.Stuck> stuck = new StuckThreadDetector(
-                options.stuckK, options.fingerprintDepth, options.maxFramesShown).detect(index);
+        // candidates -> Rules 1-3 verdicts; only genuine verdicts become findings/flags
+        List<StuckThreadDetector.Stuck> candidates = new StuckThreadDetector(
+                options.stuckK, options.fingerprintDepth, options.maxFramesShown)
+                .detect(index, series);
+        List<StuckClassifier.Verdict> verdicts = new StuckClassifier(
+                classifier, pools, options.criticalVictims)
+                .classify(candidates, index, graphs, topH);
+
         List<Object> stuckRows = new ArrayList<>();
         Set<String> flagged = new LinkedHashSet<>();
         Map<String, Set<String>> flagReasons = new LinkedHashMap<>();
-        for (StuckThreadDetector.Stuck st : stuck) {
+        for (StuckClassifier.Verdict v : verdicts) {
+            if (!v.genuine()) continue;
+            StuckThreadDetector.Stuck st = v.stuck();
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("name", st.name());
             row.put("tid", st.tid());
@@ -113,6 +132,13 @@ public final class AnalysisEngine {
             row.put("dumpsUnchanged", st.runLength());
             row.put("states", st.states());
             row.put("fingerprint", st.fingerprint());
+            row.put("verdict", v.kind().name());
+            row.put("severity", v.severity());
+            row.put("confidence", v.confidence());
+            row.put("why", v.why());
+            if (st.cpuDeltaMillis() != null) row.put("cpuDeltaMillis", st.cpuDeltaMillis());
+            if (st.wallClockSeconds() != null) row.put("wallClockSeconds", st.wallClockSeconds());
+            if (v.victims() > 0) row.put("victims", v.victims());
             row.put("frozenFrames", st.frozenFrames());
             stuckRows.add(row);
             flag(flagged, flagReasons, st.key(), "stuck");
@@ -178,10 +204,31 @@ public final class AnalysisEngine {
         }
         s.put("timelines", timelines);
 
+        // Full states-per-dump table for every matched thread (searchable in the UI).
+        if (series.size() > 1) {
+            List<Object> all = new ArrayList<>();
+            for (String key : index.keys()) {
+                ThreadInfo[] occ = index.occurrences().get(key);
+                List<Object> states = new ArrayList<>();
+                boolean any = false;
+                for (ThreadInfo t : occ) {
+                    if (t != null && t.isVmThread()) { states.add(null); continue; }
+                    states.add(t == null ? null : t.state().name());
+                    any |= t != null;
+                }
+                if (!any) continue;
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("name", index.displayName(key));
+                row.put("states", states);
+                all.add(row);
+            }
+            s.put("allTimelines", all);
+        }
+
         if (baselineDoc != null) {
             s.put("baselineDiff", new Baseline().diff(series, pools, options.topStacks, baselineDoc));
         }
-        return new SeriesResults(s, stuck, holderList, trendList);
+        return new SeriesResults(s, verdicts, holderList, trendList);
     }
 
     private static void flag(Set<String> flagged, Map<String, Set<String>> reasons,
@@ -202,6 +249,23 @@ public final class AnalysisEngine {
         m.put("totalThreads", dist.total());
         m.put("daemonThreads", dist.daemon());
         m.put("vmThreads", dist.vmThreads());
+
+        // GC/JIT sanity: worker counts, with a note when they look outsized
+        int gc = 0, jit = 0;
+        for (ThreadInfo t : d.threads()) {
+            String n = t.name();
+            if (n.startsWith("GC ") || n.startsWith("G1 ") || n.startsWith("ZGC")
+                    || n.startsWith("Shenandoah") || n.contains("(ParallelGC)")
+                    || n.startsWith("Gang worker") || n.startsWith("Concurrent Mark-Sweep")) gc++;
+            else if (n.contains("CompilerThread") || n.startsWith("Sweeper thread")) jit++;
+        }
+        m.put("gcThreads", gc);
+        m.put("jitThreads", jit);
+        if (gc >= 24 || jit >= 8) {
+            m.put("gcJitNote", "unusually many GC/JIT threads (" + gc + " GC, " + jit
+                    + " JIT) - check -XX:ParallelGCThreads/-XX:CICompilerCount vs the "
+                    + "container's actual CPU quota");
+        }
         Map<String, Object> states = new LinkedHashMap<>();
         dist.counts().forEach((k, v) -> states.put(k.name(), v));
         m.put("states", states);
@@ -265,6 +329,8 @@ public final class AnalysisEngine {
         }
         m.put("deadlocks", deadlocks);
 
+        Map<Long, TopHSample> topByPid = new LinkedHashMap<>();
+        if (topH != null) for (TopHSample s : topH) topByPid.put(s.pid(), s);
         List<Object> cpu = new ArrayList<>();
         List<CpuAttribution.Row> cpuRows = new CpuAttribution().analyze(d, topH);
         for (int i = 0; i < cpuRows.size() && i < 40; i++) {
@@ -277,9 +343,24 @@ public final class AnalysisEngine {
             row.put("cpuMillis", r.cpuMillis());
             row.put("elapsedSeconds", r.elapsedSeconds());
             row.put("topPercent", r.cpuPercentFromTop());
+            TopHSample s = topByPid.get(r.nidDecimal());
+            if (s != null && s.memPercent() > 0) row.put("topMemPercent", s.memPercent());
             cpu.add(row);
         }
         m.put("cpu", cpu);
+
+        // fastThread-style method stats: where threads are executing right now (top frame)
+        // and which methods appear anywhere in the stacks
+        Map<String, Integer> lastExecuted = new LinkedHashMap<>();
+        Map<String, Integer> mostUsed = new LinkedHashMap<>();
+        for (ThreadInfo t : d.javaThreads()) {
+            if (t.frames().isEmpty()) continue;
+            lastExecuted.merge(t.frames().get(0).signature(), 1, Integer::sum);
+            for (StackFrame f : t.frames()) mostUsed.merge(f.signature(), 1, Integer::sum);
+        }
+        m.put("methodStats", Map.of(
+                "lastExecuted", topCounts(lastExecuted, 15),
+                "mostUsed", topCounts(mostUsed, 15)));
 
         List<String> issues = new ArrayList<>();
         for (ParseIssue i : d.issues()) issues.add(i.toString());
@@ -303,6 +384,8 @@ public final class AnalysisEngine {
             if (t.elapsedSeconds() != null) row.put("elapsedSeconds", t.elapsedSeconds());
             String pool = pools.poolOf(t.name());
             if (pool != null) row.put("pool", pool);
+            ThreadClassifier.Classification cls = classifier.classify(t);
+            if (cls.label() != null) row.put("class", cls.label());
             if (!t.frames().isEmpty()) {
                 String key = Long.toHexString(t.stackHash());
                 stackTable.computeIfAbsent(key, k -> frameList(t));
@@ -333,5 +416,14 @@ public final class AnalysisEngine {
 
     private static List<String> cap(List<String> in, int max) {
         return in.size() <= max ? in : in.subList(0, max);
+    }
+
+    private static List<Object> topCounts(Map<String, Integer> counts, int n) {
+        List<Object> out = new ArrayList<>();
+        counts.entrySet().stream()
+                .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
+                .limit(n)
+                .forEach(e -> out.add(Map.of("method", e.getKey(), "count", e.getValue())));
+        return out;
     }
 }

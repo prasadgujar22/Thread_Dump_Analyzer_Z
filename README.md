@@ -11,9 +11,6 @@ network calls of any kind. Dumps contain production data; they never leave the m
 
 ## Quick start
 
-A prebuilt jar is committed at **`dist/tda.jar`** — copy that one file to any machine with a
-Java 17+ runtime and it works, air-gapped included. To build it yourself:
-
 ```bash
 mvn package                     # -> target/tda.jar (the only artifact you need)
 
@@ -84,7 +81,33 @@ Across a series:
 Pattern library (each finding = severity + evidence + concrete recommendation):
 connection-pool exhaustion (HikariCP / Oracle UCP / WebLogic JDBC / DBCP borrow frames),
 synchronized-logging bottleneck, network hangs (`socketRead0` with no timeout), classloader
-contention, finalizer backlog, deadlock (always critical), top blocker ranking, thread leaks.
+contention, finalizer backlog, deadlock (always critical), top blocker ranking, thread leaks,
+spinning threads (CPU-corroborated busy loops), exception-processing storms.
+
+### False-positive elimination (see `DETECTION_RULES.md`)
+
+A persistent stack fingerprint alone is never a finding. Candidates pass through:
+
+1. an **idle-pattern knowledge base** (`idle-patterns.yaml` in the jar; extend per site with
+   `--idle-patterns`) covering accept loops, selector waits, executor queue takes, container
+   idle loops - Tomcat's `main` in `StandardServer.await` classifies as
+   "idle (acceptor/await loop)", never stuck;
+2. a **JVM housekeeping allowlist** (`Reference Handler`, `Finalizer`, GC/JIT workers, ...) -
+   exempt unless showing a real anomaly (e.g. Finalizer BLOCKED on an application monitor);
+3. **CPU-delta corroboration** using `cpu=` fields (JDK 11+) or `top -H` (JDK 8): zero
+   progress in a native frame demotes to INFO; cpu advancing ~ wall clock promotes to a
+   spinning-thread finding.
+
+CRITICAL always requires demonstrable impact (deadlock, ≥ `--critical-victims` threads
+blocked behind one holder, a spinning thread that blocks others); every finding carries a
+confidence level and a "why this is not a false positive" evidence line.
+
+### Extra analysis views
+
+Call-stack tree (all stacks merged, per-node thread counts), last-executed / most-used
+method summaries, searchable state-per-dump table for every thread, daemon and GC/JIT
+thread tiles, per-thread classification in the thread browser (idle / housekeeping),
+`top -H` %CPU and %MEM correlation.
 
 ## CLI reference
 
@@ -97,6 +120,8 @@ java -jar tda.jar analyze <files...> [options]
   --fingerprint-depth <n>    frames hashed into the fingerprint (default 8)
   --top-stacks <n>           recurring-stack groups reported per dump (default 15)
   --pool-pattern name=regex  extra pool rule, repeatable (group 1 appended to name)
+  --idle-patterns <file>     extra idle-pattern YAML (see DETECTION_RULES.md); overrides built-ins by name
+  --critical-victims <n>     blocked threads behind one holder before CRITICAL (default 5)
   --baseline-save <file>     save this (healthy) series as a baseline
   --baseline <file>          diff this (incident) series against a saved baseline
 
@@ -105,7 +130,8 @@ java -jar tda.jar serve [--port 8080] [--host 127.0.0.1]
 
 `serve` binds to localhost only unless you explicitly change `--host`. The web UI offers the
 same analysis plus drag-and-drop upload, `top -H` paste, baseline save/compare, and a
-"download standalone report" button.
+"download standalone report" button. For scripting, `GET /api/analysis` returns the most
+recent analysis as JSON (mirrors the CLI's `--json` output).
 
 ## Architecture
 
@@ -133,7 +159,10 @@ Design notes:
 * Runtime dependencies: picocli. That's it — HTTP is `com.sun.net.httpserver`, JSON is
   in-house, charts are Apache ECharts bundled as a classpath resource (Apache-2.0).
 * New dump formats plug in beside `HotSpotParser`; new detectors implement
-  `analysis.pattern.Pattern`. (IBM/OpenJ9 javacore support is the planned next format.)
+  `analysis.pattern.Pattern`.
+
+Backlog (not yet supported): IBM/OpenJ9 javacore, Android ART dumps, `hs_err_pid` crash
+files, core-dump extraction, AI-assisted chat over findings.
 
 ## Development
 

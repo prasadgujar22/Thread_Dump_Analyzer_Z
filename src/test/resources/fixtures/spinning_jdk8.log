@@ -1,0 +1,77 @@
+2026-07-16 16:30:00
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"order-reconciler" #31 prio=5 os_prio=0 tid=0x00007f3bc4a01000 nid=0x6101 runnable [0x00007f3ba86f5000]
+   java.lang.Thread.State: RUNNABLE
+	at com.acme.recon.MatchEngine.scanBucket(MatchEngine.java:214)
+	at com.acme.recon.MatchEngine.reconcile(MatchEngine.java:158)
+	at com.acme.recon.ReconcilerLoop.run(ReconcilerLoop.java:63)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f3bc4009000 nid=0x6001 waiting on condition [0x00007f3bcb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at com.acme.Server.mainLoop(Server.java:120)
+	at com.acme.Server.main(Server.java:61)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f3bc40c8000 nid=0x6004 runnable
+
+JNI global references: 101
+
+2026-07-16 16:30:20
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"order-reconciler" #31 prio=5 os_prio=0 tid=0x00007f3bc4a01000 nid=0x6101 runnable [0x00007f3ba86f5000]
+   java.lang.Thread.State: RUNNABLE
+	at com.acme.recon.MatchEngine.scanBucket(MatchEngine.java:214)
+	at com.acme.recon.MatchEngine.reconcile(MatchEngine.java:158)
+	at com.acme.recon.ReconcilerLoop.run(ReconcilerLoop.java:63)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f3bc4009000 nid=0x6001 waiting on condition [0x00007f3bcb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at com.acme.Server.mainLoop(Server.java:120)
+	at com.acme.Server.main(Server.java:61)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f3bc40c8000 nid=0x6004 runnable
+
+JNI global references: 101
+
+2026-07-16 16:30:45
+Full thread dump Java HotSpot(TM) 64-Bit Server VM (25.202-b08 mixed mode):
+
+"order-reconciler" #31 prio=5 os_prio=0 tid=0x00007f3bc4a01000 nid=0x6101 runnable [0x00007f3ba86f5000]
+   java.lang.Thread.State: RUNNABLE
+	at com.acme.recon.MatchEngine.scanBucket(MatchEngine.java:214)
+	at com.acme.recon.MatchEngine.reconcile(MatchEngine.java:158)
+	at com.acme.recon.ReconcilerLoop.run(ReconcilerLoop.java:63)
+	at java.lang.Thread.run(Thread.java:748)
+
+   Locked ownable synchronizers:
+	- None
+
+"main" #1 prio=5 os_prio=0 tid=0x00007f3bc4009000 nid=0x6001 waiting on condition [0x00007f3bcb0fd000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(Native Method)
+	at com.acme.Server.mainLoop(Server.java:120)
+	at com.acme.Server.main(Server.java:61)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 tid=0x00007f3bc40c8000 nid=0x6004 runnable
+
+JNI global references: 101

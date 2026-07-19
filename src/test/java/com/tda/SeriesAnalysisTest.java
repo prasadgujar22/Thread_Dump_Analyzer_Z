@@ -52,7 +52,7 @@ class SeriesAnalysisTest {
                 dump("2026-07-13 03:01:00", STACK_A, "RUNNABLE"),
                 dump("2026-07-13 03:02:00", STACK_A, "RUNNABLE"));
         List<StuckThreadDetector.Stuck> st =
-                new StuckThreadDetector(3, 8, 40).detect(SeriesIndex.build(s));
+                new StuckThreadDetector(3, 8, 40).detect(SeriesIndex.build(s), s);
         assertEquals(1, st.size());
         assertEquals("frozen", st.get(0).name());
         assertEquals(3, st.get(0).runLength());
@@ -65,7 +65,7 @@ class SeriesAnalysisTest {
                 dump("2026-07-13 03:00:00", STACK_A, "RUNNABLE"),
                 dump("2026-07-13 03:01:00", STACK_B, "RUNNABLE"),
                 dump("2026-07-13 03:02:00", STACK_A, "RUNNABLE"));
-        assertTrue(new StuckThreadDetector(3, 8, 40).detect(SeriesIndex.build(s)).isEmpty());
+        assertTrue(new StuckThreadDetector(3, 8, 40).detect(SeriesIndex.build(s), s).isEmpty());
     }
 
     @Test
@@ -74,7 +74,7 @@ class SeriesAnalysisTest {
                 dump("2026-07-13 03:00:00", STACK_A, "WAITING (parking)"),
                 dump("2026-07-13 03:01:00", STACK_A, "WAITING (parking)"),
                 dump("2026-07-13 03:02:00", STACK_A, "WAITING (parking)"));
-        assertTrue(new StuckThreadDetector(3, 8, 40).detect(SeriesIndex.build(s)).isEmpty(),
+        assertTrue(new StuckThreadDetector(3, 8, 40).detect(SeriesIndex.build(s), s).isEmpty(),
                 "idle pool threads parked on their queue are healthy, not stuck");
     }
 
@@ -88,7 +88,7 @@ class SeriesAnalysisTest {
                 .replace("\"frozen\"", "\"[STUCK] ExecuteThread: '9' for queue: 'q'\"");
         DumpSeries s = seriesOf(d1, d2, d3);
         List<StuckThreadDetector.Stuck> st =
-                new StuckThreadDetector(3, 8, 40).detect(SeriesIndex.build(s));
+                new StuckThreadDetector(3, 8, 40).detect(SeriesIndex.build(s), s);
         assertEquals(1, st.size(), "[ACTIVE] -> [STUCK] rename must not lose the match");
         assertEquals("ExecuteThread: '9' for queue: 'q'", st.get(0).name());
     }

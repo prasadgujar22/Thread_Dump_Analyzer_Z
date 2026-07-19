@@ -47,12 +47,23 @@ class PatternLibraryTest {
     void weblogicSeriesLightsUpTheExpectedDetectors() {
         List<Map<String, Object>> fs = findings("stuck_series_weblogic.log");
         assertEquals("CRITICAL", byId(fs, "weblogic-stuck").get("severity"));
-        assertEquals("CRITICAL", byId(fs, "stuck-thread").get("severity"));
+        // the log4j convoy: blocked chains behind ExecuteThread '4' (6 waiters >= 5) are CRITICAL
+        assertTrue(fs.stream().anyMatch(f -> "stuck-thread".equals(f.get("id"))
+                        && "CRITICAL".equals(f.get("severity"))
+                        && String.valueOf(f.get("title")).contains("blocked on the same monitor")),
+                "blocked-chain stuck findings must be CRITICAL with 6 victims");
+        // network-hang stays CRITICAL because the frozen socket-read thread is [STUCK]-marked
         assertEquals("CRITICAL", byId(fs, "network-hang").get("severity"));
+        assertEquals("CRITICAL", byId(fs, "top-blocker").get("severity"));
         byId(fs, "sync-logging-bottleneck");
-        byId(fs, "top-blocker");
         Map<String, Object> leak = byId(fs, "thread-leak");
         assertTrue(String.valueOf(leak.get("title")).contains("pool-9"));
+        // every finding carries the Rule-5 evidence block
+        for (Map<String, Object> f : fs) {
+            if ("weblogic-hogging".equals(f.get("id"))) continue;
+            Map<String, Object> ev = (Map<String, Object>) f.get("evidence");
+            assertTrue(ev.containsKey("confidence"), f.get("id") + " missing confidence");
+        }
     }
 
     @Test
@@ -60,6 +71,36 @@ class PatternLibraryTest {
         assertTrue(findings("healthy_jdk8.txt").isEmpty(),
                 "a healthy dump must not cry wolf");
         assertTrue(findings("healthy_jdk17.txt").isEmpty());
+    }
+
+    @Test
+    void exceptionProcessingDetected() throws Exception {
+        StringBuilder sb = new StringBuilder("""
+                2026-07-16 19:00:00
+                Full thread dump OpenJDK 64-Bit Server VM (17.0.11+9-LTS mixed mode, sharing):
+
+                """);
+        for (int n = 1; n <= 6; n++) {
+            sb.append(String.format("""
+                    "http-nio-8080-exec-%d" #%d daemon prio=5 os_prio=0 cpu=9.00ms elapsed=50.00s tid=0x00000000000a%d000 nid=0x9%d0 runnable  [0x00000000000b%d000]
+                       java.lang.Thread.State: RUNNABLE
+                    \tat java.lang.Throwable.fillInStackTrace(java.base@17.0.11/Native Method)
+                    \tat java.lang.Throwable.<init>(java.base@17.0.11/Throwable.java:271)
+                    \tat com.acme.retry.RetryLoop.attempt(RetryLoop.java:77)
+                    \tat java.lang.Thread.run(java.base@17.0.11/Thread.java:840)
+
+                       Locked ownable synchronizers:
+                    \t- None
+
+                    """, n, 40 + n, n, n, n));
+        }
+        var series = new com.tda.core.parse.DumpSetLoader()
+                .loadFromStrings(List.of("x"), List.of(sb.toString()));
+        var result = new AnalysisEngine(new AnalysisOptions()).analyze(series, List.of());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> fs = (List<Map<String, Object>>) (List<?>) result.get("findings");
+        Map<String, Object> f = byId(fs, "exception-processing");
+        assertEquals("WARNING", f.get("severity"), "6 threads mid-exception is a throw storm");
     }
 
     @Test
