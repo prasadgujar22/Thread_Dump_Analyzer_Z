@@ -58,6 +58,27 @@ public class AnalyzeCommand implements Callable<Integer> {
                     + "frames - treat it with the same sensitivity as the dumps.")
     Path historyDb;
 
+    @Option(names = "--fail-on", paramLabel = "critical|warning",
+            description = "Exit 1 when findings at/above this severity exist (pipeline gate). "
+                    + "Exit codes: 0 clean, 1 threshold met, 2 usage error, 3 parse failure.")
+    String failOn;
+
+    @Option(names = "--redact", description = "Scrub hostnames, IPs, and email-like tokens from "
+            + "thread names, frames, and lock strings using deterministic pseudonyms (host-1, "
+            + "ip-2) before writing the report, JSON, or webhook payload.")
+    boolean redact;
+
+    @Option(names = "--webhook", paramLabel = "<url>",
+            description = "POST the findings summary to this URL after analysis. THE ONLY network "
+                    + "call this tool can ever make, and only when this flag is present - "
+                    + "everything else is fully offline.")
+    String webhook;
+
+    @Option(names = "--webhook-format", paramLabel = "json|slack", defaultValue = "json",
+            description = "Webhook payload format: json (findings summary document) or slack "
+                    + "(simple text blocks) (default: ${DEFAULT-VALUE}).")
+    String webhookFormat;
+
     @Option(names = "--json", paramLabel = "<file>", description = "Write the full analysis as JSON.")
     Path jsonOut;
 
@@ -135,7 +156,13 @@ public class AnalyzeCommand implements Callable<Integer> {
             System.err.println("Give at least one dump file (or use --cluster).");
             return 2;
         }
-        DumpSeries series = loadInput();
+        DumpSeries series;
+        try {
+            series = loadInput();
+        } catch (Exception e) {
+            System.err.println("parse failure: " + e.getMessage());
+            return 3;
+        }
         if (series.size() == 0) {
             System.err.println("No thread dumps found in the given file(s).");
             return 3;
@@ -181,6 +208,10 @@ public class AnalyzeCommand implements Callable<Integer> {
         }
         recordHistory(result, engine.buildBaseline(series));
 
+        if (redact) {
+            result = (Map<String, Object>) new com.tda.report.Redactor().redactTree(result);
+        }
+
         if (baselineSave != null) {
             Files.writeString(baselineSave, Json.write(engine.buildBaseline(series)), StandardCharsets.UTF_8);
             System.out.println("Baseline saved to " + baselineSave);
@@ -195,7 +226,68 @@ public class AnalyzeCommand implements Callable<Integer> {
             System.out.println("HTML report written to " + htmlOut);
         }
         printSummary(series, result);
+        if (webhook != null) postWebhook(result);
+        return exitCode(result);
+    }
+
+    /** --fail-on gate: 1 when findings at/above the threshold exist, else 0. */
+    @SuppressWarnings("unchecked")
+    private int exitCode(Map<String, Object> result) {
+        if (failOn == null) return 0;
+        boolean warnCounts = "warning".equalsIgnoreCase(failOn);
+        if (!warnCounts && !"critical".equalsIgnoreCase(failOn)) {
+            System.err.println("--fail-on must be critical or warning");
+            return 2;
+        }
+        for (Map<String, Object> f : (List<Map<String, Object>>) (List<?>) result.get("findings")) {
+            String sev = String.valueOf(f.get("severity"));
+            if ("CRITICAL".equals(sev) || (warnCounts && "WARNING".equals(sev))) {
+                System.out.printf("--fail-on %s: threshold met (%s: %s) -> exit 1%n",
+                        failOn.toLowerCase(), sev, f.get("title"));
+                return 1;
+            }
+        }
         return 0;
+    }
+
+    /** The single opt-in network action; failures warn but never fail the analysis. */
+    @SuppressWarnings("unchecked")
+    private void postWebhook(Map<String, Object> result) {
+        try {
+            List<Map<String, Object>> findings =
+                    (List<Map<String, Object>>) (List<?>) result.get("findings");
+            Map<String, Integer> sev = new java.util.LinkedHashMap<>();
+            for (Map<String, Object> f : findings) {
+                sev.merge(String.valueOf(f.get("severity")), 1, Integer::sum);
+            }
+            String body;
+            if ("slack".equalsIgnoreCase(webhookFormat)) {
+                StringBuilder text = new StringBuilder("*TDA findings*  critical: "
+                        + sev.getOrDefault("CRITICAL", 0) + " · warning: "
+                        + sev.getOrDefault("WARNING", 0) + " · info: "
+                        + sev.getOrDefault("INFO", 0));
+                findings.stream().limit(5).forEach(f ->
+                        text.append("\n• [").append(f.get("severity")).append("] ")
+                            .append(f.get("title")));
+                body = Json.write(Map.of("text", text.toString()));
+            } else {
+                List<Object> top = new ArrayList<>();
+                findings.stream().limit(10).forEach(f -> top.add(Map.of(
+                        "severity", f.get("severity"), "id", f.get("id"), "title", f.get("title"))));
+                body = Json.write(Map.of("tool", "tda", "severities", sev, "findings", top));
+            }
+            var client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(10)).build();
+            var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create(webhook))
+                    .header("Content-Type", "application/json")
+                    .timeout(java.time.Duration.ofSeconds(15))
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body)).build();
+            var response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.discarding());
+            System.out.println("webhook: POST " + webhook + " -> HTTP " + response.statusCode());
+        } catch (Exception e) {
+            System.err.println("webhook failed (analysis unaffected): " + e.getMessage());
+        }
     }
 
     /** Cluster mode: per-node analysis + cross-fleet comparison; writes the same artifacts. */

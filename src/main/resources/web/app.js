@@ -20,6 +20,53 @@ const TDA = (() => {
     return null;
   }
 
+  function slug(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  }
+
+  // ---- annotations: notes per finding/thread anchor; localStorage in serve mode,
+  // ---- baked into the DOM by "Export annotated report" for the RCA artifact path.
+  function noteKey(anchor) { return "tda-note-" + anchor; }
+  let harvestedNotes = {}; // notes baked into an exported report, recovered before re-render
+  function loadNote(anchor) {
+    if (harvestedNotes[anchor]) return harvestedNotes[anchor];
+    try { return localStorage.getItem(noteKey(anchor)) || ""; } catch (e) { return ""; }
+  }
+  function attachAnnotation(container, anchor) {
+    const btn = el("button", { type: "button", class: "notebtn", title: "Add a note (kept in exports)" }, "✎ note");
+    btn.style.cssText = "font-size:11px;padding:1px 8px;margin-left:8px";
+    const ta = el("textarea", { class: "tda-note", "data-anchor": anchor,
+        placeholder: "RCA note… (included in Export annotated report)" });
+    ta.style.cssText = "display:none;margin-top:6px;min-height:48px";
+    const saved = ta.getAttribute("data-note") || loadNote(anchor);
+    if (saved) { ta.value = saved; ta.style.display = "block"; }
+    ta.addEventListener("input", () => {
+      try { localStorage.setItem(noteKey(anchor), ta.value); } catch (e) { /* file:// quota */ }
+      ta.setAttribute("data-note", ta.value); // survives DOM serialization
+    });
+    if (saved) ta.setAttribute("data-note", saved);
+    btn.addEventListener("click", () => {
+      ta.style.display = ta.style.display === "none" ? "block" : "none";
+      if (ta.style.display === "block") ta.focus();
+    });
+    container.appendChild(btn);
+    container.appendChild(ta);
+  }
+
+  // Re-serializes the current DOM (with data-note attributes) into a new standalone file.
+  function exportAnnotatedReport() {
+    document.querySelectorAll("textarea.tda-note").forEach(ta => {
+      ta.setAttribute("data-note", ta.value);
+      ta.textContent = ta.value; // textarea content only serializes via its text node
+    });
+    const html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    a.download = "tda-report-annotated.html";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   let charts = [];          // live ECharts instances (disposed on re-render)
   let rebuilders = [];      // functions to rebuild charts on theme change
 
@@ -384,13 +431,21 @@ const TDA = (() => {
   }
 
   function findingsSection(root, data) {
-    root.appendChild(el("h2", null, "Findings"));
+    const h = el("h2", null, "Findings");
+    const exp = el("button", { type: "button" }, "Export annotated report");
+    exp.style.cssText = "float:right;font-size:12px";
+    exp.addEventListener("click", exportAnnotatedReport);
+    h.appendChild(exp);
+    root.appendChild(h);
     const fs = data.findings || [];
     if (!fs.length) {
       root.appendChild(el("p", { class: "sub" }, "No patterns matched. No deadlocks, stuck threads, or known bottlenecks detected."));
       return;
     }
+    const anchorCounts = {};
     for (const f of fs) {
+      anchorCounts[f.id] = (anchorCounts[f.id] || 0) + 1;
+      const anchor = `finding-${slug(f.id)}-${anchorCounts[f.id]}`;
       const ev = f.evidence || {};
       let evHtml = "";
       for (const [k, v] of Object.entries(ev)) {
@@ -398,11 +453,13 @@ const TDA = (() => {
         const val = Array.isArray(v) ? v.map(x => esc(String(x))).join(", ") : esc(String(v));
         evHtml += `<div class="sub"><b>${esc(k)}:</b> ${val}</div>`;
       }
-      root.appendChild(el("div", { class: "card finding " + f.severity },
+      const card = el("div", { class: "card finding " + f.severity, id: anchor },
           `<div><span class="sevtag ${f.severity}">${f.severity}</span><b>${esc(f.title)}</b>` +
-          ` <span class="badge">${esc(f.id)}</span></div>` +
+          ` <span class="badge">${esc(f.id)}</span> <a class="sub" href="#${anchor}">#</a></div>` +
           `<p>${esc(f.detail)}</p>${evHtml}` +
-          `<div class="rec">${esc(f.recommendation)}</div>`));
+          `<div class="rec">${esc(f.recommendation)}</div>`);
+      attachAnnotation(card, anchor);
+      root.appendChild(card);
     }
   }
 
@@ -857,7 +914,9 @@ const TDA = (() => {
         total++;
         if (shown >= 400) continue;
         shown++;
-        rows.push(`<tr><td>${esc(t.name)}${t.daemon ? ' <span class="badge">daemon</span>' : ""}</td>` +
+        const anchor = `thread-${slug(t.name)}`;
+        rows.push(`<tr id="${anchor}"><td>${esc(t.name)}${t.daemon ? ' <span class="badge">daemon</span>' : ""}` +
+            ` <a class="sub" href="#${anchor}">#</a></td>` +
             `<td>${stateChip(t.state)}</td>` +
             `<td class="sub">${esc(t["class"] || "")}${t.activity ? (t["class"] ? " · " : "") +
                 esc(t.activity) + ` <span class="badge">${esc(t.category)}</span>` : ""}</td>` +
@@ -882,6 +941,11 @@ const TDA = (() => {
     charts.forEach(c => c.dispose());
     charts = [];
     rebuilders = [];
+    // an exported annotated report re-renders on open: recover its baked-in notes first
+    document.querySelectorAll("textarea.tda-note").forEach(ta => {
+      const v = ta.getAttribute("data-note") || ta.textContent;
+      if (v) harvestedNotes[ta.getAttribute("data-anchor")] = v;
+    });
     root.innerHTML = "";
     if (data && data.cluster) {
       meaningsCatalog = data.meaningsCatalog || [];
