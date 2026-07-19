@@ -9,6 +9,7 @@ import com.tda.core.analysis.single.PoolGrouper;
 import com.tda.core.model.ThreadDump;
 import com.tda.core.model.ThreadInfo;
 import com.tda.core.model.ThreadState;
+import com.tda.core.parse.GcLogParser;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -35,7 +36,8 @@ public final class PatternLibrary {
             new FinalizerBacklogPattern(),
             new TopBlockerPattern(),
             new ThreadLeakPattern(),
-            new ExceptionProcessingPattern());
+            new ExceptionProcessingPattern(),
+            new GcPausePattern());
 
     public List<Finding> run(PatternContext ctx) {
         List<Finding> out = new ArrayList<>();
@@ -467,6 +469,69 @@ final class TopBlockerPattern implements Pattern {
             f.evidence("frames", frames);
         }
         return List.of(f);
+    }
+}
+
+/** Long or frequent stop-the-world windows from a supplied GC/safepoint log. */
+final class GcPausePattern implements Pattern {
+    static final double LONG_PAUSE_WARN_MS = 1000;
+    static final double LONG_PAUSE_CRITICAL_MS = 5000;
+
+    @Override public List<Finding> detect(PatternContext ctx) {
+        var pauses = ctx.gcPauses();
+        if (pauses.isEmpty()) return List.of();
+        List<Finding> out = new ArrayList<>();
+
+        var longest = pauses.stream()
+                .filter(p -> p.durationMs() >= LONG_PAUSE_WARN_MS)
+                .sorted((a, b) -> Double.compare(b.durationMs(), a.durationMs()))
+                .limit(5).toList();
+        if (!longest.isEmpty()) {
+            var worst = longest.get(0);
+            out.add(new Finding("long-gc-pause",
+                    worst.durationMs() >= LONG_PAUSE_CRITICAL_MS ? CRITICAL : WARNING,
+                    String.format("Long stop-the-world pause: %.0f ms (%s)",
+                            worst.durationMs(), worst.cause()),
+                    longest.size() + " pause(s) exceeded " + (long) LONG_PAUSE_WARN_MS + " ms during "
+                            + "the capture window. Every application thread stands still for the "
+                            + "entire pause - requests stall, timeouts fire, and frozen-looking "
+                            + "threads in the dumps may simply be paused.",
+                    "Tune for the collector in use (heap sizing, region sizes, "
+                            + "-XX:MaxGCPauseMillis for G1) or move to a low-pause collector "
+                            + "(G1 -> ZGC/Shenandoah). If the cause is a safepoint other than GC, "
+                            + "find the requesting VM operation.")
+                    .evidence("pauses", longest.stream().map(p -> Map.of(
+                            "start", p.start().toString(),
+                            "durationMs", p.durationMs(),
+                            "cause", p.cause(), "kind", p.kind())).toList())
+                    .evidence("confidence", "high")
+                    .evidence("whyNotFalsePositive",
+                            "pause durations are the JVM's own measurements from its GC log"));
+        }
+
+        var first = pauses.get(0).start();
+        var last = pauses.get(pauses.size() - 1).end();
+        double windowMs = Math.max(1, java.time.Duration.between(first, last).toMillis());
+        double stoppedMs = pauses.stream().mapToDouble(GcLogParser.PauseWindow::durationMs).sum();
+        double pct = 100.0 * stoppedMs / windowMs;
+        if (pct >= 10.0 && pauses.size() >= 5) {
+            out.add(new Finding("frequent-safepoints", WARNING,
+                    String.format("Application stopped %.1f%% of the time (%d pauses)",
+                            pct, pauses.size()),
+                    String.format("Across the logged window the JVM spent %.0f ms of %.0f ms "
+                            + "inside stop-the-world pauses. Throughput and latency both suffer "
+                            + "before any single pause looks alarming.", stoppedMs, windowMs),
+                    "Check allocation rate (frequent young GCs), humongous allocations on G1, "
+                            + "explicit System.gc() calls, and non-GC safepoint causes "
+                            + "(-Xlog:safepoint shows the requesting operation).")
+                    .evidence("stoppedMs", Math.round(stoppedMs))
+                    .evidence("windowMs", Math.round(windowMs))
+                    .evidence("pauseCount", pauses.size())
+                    .evidence("confidence", "high")
+                    .evidence("whyNotFalsePositive",
+                            "aggregated from the JVM's own pause accounting, not sampled"));
+        }
+        return out;
     }
 }
 

@@ -64,11 +64,53 @@ const TDA = (() => {
 
   // ---------------------------------------------------------------- charts
 
-  function statesChart(container, dumps) {
+  // Fractional category-axis position for a wall-clock instant, interpolated between dumps.
+  function timeToAxisPos(dumps, tMillis) {
+    const times = dumps.map(d => d.timestamp ? Date.parse(d.timestamp) : null);
+    if (times.some(x => x == null)) return null;
+    if (tMillis <= times[0]) return tMillis < times[0] - 60000 ? null : -0.4;
+    for (let i = 1; i < times.length; i++) {
+      if (tMillis <= times[i]) {
+        return (i - 1) + (tMillis - times[i - 1]) / Math.max(1, times[i] - times[i - 1]);
+      }
+    }
+    return tMillis > times[times.length - 1] + 60000 ? null : times.length - 1 + 0.4;
+  }
+
+  // GC/safepoint pause windows as shaded bands (markArea) over a category-axis chart.
+  function pauseBands(dumps, gcPauses) {
+    if (!gcPauses || !gcPauses.length) return null;
+    const data = [];
+    for (const p of gcPauses) {
+      const s = Date.parse(p.start);
+      const a = timeToAxisPos(dumps, s);
+      const b = timeToAxisPos(dumps, s + Math.max(p.durationMs, 500)); // min visible width
+      if (a == null || b == null) continue;
+      data.push([{ xAxis: a, name: `${p.cause} (${Math.round(p.durationMs)}ms)` },
+                 { xAxis: Math.max(b, a + 0.03) }]);
+      if (data.length >= 80) break;
+    }
+    if (!data.length) return null;
+    return {
+      silent: true,
+      itemStyle: { color: cssVar("--critical"), opacity: 0.14 },
+      label: { show: false },
+      data
+    };
+  }
+
+  function statesChart(container, dumps, gcPauses) {
     makeChart(container, 300, () => {
       const t = chartTheme();
       const cats = dumps.map(dumpLabel);
       const present = STATE_ORDER.filter(s => dumps.some(d => (d.states || {})[s]));
+      const bands = pauseBands(dumps, gcPauses);
+      const series = present.map(s => ({
+        name: s, type: "bar", stack: "states", data: dumps.map(d => (d.states || {})[s] || 0),
+        barMaxWidth: 46,
+        itemStyle: { color: stateColor(s), borderColor: cssVar("--surface"), borderWidth: 1 }
+      }));
+      if (bands && series.length) series[0].markArea = bands;
       return {
         tooltip: Object.assign(baseTooltip(), { trigger: "axis", axisPointer: { type: "shadow" } }),
         legend: { top: 0, textStyle: { color: t.textStyle.color, fontSize: 12 } },
@@ -76,16 +118,12 @@ const TDA = (() => {
         xAxis: { type: "category", data: cats, axisLine: t.axisLine,
                  axisLabel: { color: t.textStyle.color } },
         yAxis: { type: "value", splitLine: t.splitLine, axisLabel: { color: t.textStyle.color } },
-        series: present.map(s => ({
-          name: s, type: "bar", stack: "states", data: dumps.map(d => (d.states || {})[s] || 0),
-          barMaxWidth: 46,
-          itemStyle: { color: stateColor(s), borderColor: cssVar("--surface"), borderWidth: 1 }
-        }))
+        series
       };
     });
   }
 
-  function poolTrendChart(container, trends, dumps) {
+  function poolTrendChart(container, trends, dumps, gcPauses) {
     if (!trends.length) return;
     makeChart(container, 300, () => {
       const t = chartTheme();
@@ -105,6 +143,8 @@ const TDA = (() => {
           lineStyle: { width: 2, type: "dashed", color: cssVar("--muted") },
           itemStyle: { color: cssVar("--muted") } });
       }
+      const bands = pauseBands(dumps, gcPauses);
+      if (bands && series.length) series[0].markArea = bands;
       return {
         tooltip: Object.assign(baseTooltip(), { trigger: "axis" }),
         legend: { top: 0, type: "scroll", textStyle: { color: t.textStyle.color, fontSize: 11.5 } },
@@ -304,6 +344,9 @@ const TDA = (() => {
     tile(dumps.length, "dump" + (dumps.length > 1 ? "s" : ""));
     tile(last.totalThreads, "threads (last dump)");
     tile(`${last.daemonThreads} / ${last.totalThreads - last.daemonThreads}`, "daemon / non-daemon");
+    if (last.virtualThreads !== undefined) {
+      tile(`${last.platformThreads} / ${last.virtualThreads}`, "platform / virtual");
+    }
     if (last.gcThreads !== undefined) {
       tile(`${last.gcThreads} · ${last.jitThreads}`, "GC · JIT threads");
     }
@@ -356,13 +399,18 @@ const TDA = (() => {
   function chartsSection(root, data) {
     const dumps = data.dumps;
     root.appendChild(el("h2", null, "Thread states across the series"));
-    statesChart(root.appendChild(el("div", { class: "card" })), dumps);
+    if ((data.gcPauses || []).length) {
+      root.appendChild(el("p", { class: "sub" },
+          `Shaded bands mark the ${data.gcPauses.length} GC/safepoint pause window(s) from the supplied GC log.`));
+    }
+    statesChart(root.appendChild(el("div", { class: "card" })), dumps, data.gcPauses);
 
     const trends = (data.series && data.series.poolTrends) || [];
     if (trends.length) {
       root.appendChild(el("h2", null, "Thread-pool sizes across the series"));
-      poolTrendChart(root.appendChild(el("div", { class: "card" })), trends, dumps);
+      poolTrendChart(root.appendChild(el("div", { class: "card" })), trends, dumps, data.gcPauses);
     }
+    jfrSections(root, data);
     const timelines = (data.series && data.series.timelines) || [];
     if (timelines.length && dumps.length > 1) {
       root.appendChild(el("h2", null, "Flagged threads — state per dump"));
@@ -414,6 +462,31 @@ const TDA = (() => {
     q.addEventListener("input", renderTable);
     st.addEventListener("change", renderTable);
     renderTable();
+  }
+
+  // JFR-only sections: lock-contention aggregate and virtual-thread pinning events.
+  function jfrSections(root, data) {
+    const cont = data.jfrContention || [];
+    if (cont.length) {
+      root.appendChild(el("h2", null, "Lock contention (JFR events)"));
+      const rows = cont.map(c =>
+          `<tr><td><span class="badge">${esc(c.kind)}</span></td><td class="mono">${esc(c["class"])}</td>` +
+          `<td class="num">${c.count}</td><td class="num">${c.totalMs}ms</td>` +
+          `<td class="num">${c.maxMs}ms</td></tr>`).join("");
+      root.appendChild(el("div", { class: "card tablewrap" },
+          `<table><thead><tr><th>Event</th><th>Class</th><th class="num">Count</th>` +
+          `<th class="num">Total wait</th><th class="num">Max wait</th></tr></thead>` +
+          `<tbody>${rows}</tbody></table>`));
+    }
+    const pinned = data.jfrPinned || [];
+    if (pinned.length) {
+      root.appendChild(el("h2", null, "Virtual-thread pinning (JFR events)"));
+      const cards = pinned.slice(0, 10).map(p =>
+          `<div class="card"><b>${(p.durationMs || 0).toFixed(1)} ms pinned</b>` +
+          (p.thread ? ` <span class="sub">${esc(p.thread)}</span>` : "") +
+          (p.frames ? stackDetails(p.frames, "pinning stack") : "") + `</div>`).join("");
+      root.appendChild(el("div", null, cards));
+    }
   }
 
   function seriesSection(root, data) {
@@ -510,6 +583,18 @@ const TDA = (() => {
 
     callStackTree(root, d);
     methodStats(root, d);
+
+    // carrier mapping (JDK 21+ JSON dumps with virtual threads)
+    if ((d.carriers || []).length) {
+      const rows = d.carriers.map(c =>
+          `<tr><td>${esc(c.carrier)}</td><td class="mono">${esc(c.carrierTid)}</td>` +
+          `<td class="num">${c.count}</td>` +
+          `<td class="sub">${c.virtualThreads.map(esc).join(", ")}${c.count > c.virtualThreads.length ? ", …" : ""}</td></tr>`).join("");
+      root.appendChild(el("div", { class: "card tablewrap" },
+          `<h3>Carrier threads → virtual threads</h3><table><thead><tr><th>Carrier</th>` +
+          `<th>tid</th><th class="num">Virtual threads</th><th>Names</th></tr></thead>` +
+          `<tbody>${rows}</tbody></table>`));
+    }
 
     // pools
     if ((d.pools || []).length) {

@@ -9,6 +9,8 @@ import com.tda.core.model.DumpSeries;
 import com.tda.core.model.ThreadDump;
 import com.tda.core.model.TopHSample;
 import com.tda.core.parse.DumpSetLoader;
+import com.tda.core.parse.GcLogParser;
+import com.tda.core.parse.JfrLoader;
 import com.tda.core.parse.TopHParser;
 import com.tda.report.HtmlReport;
 import picocli.CommandLine.Command;
@@ -18,6 +20,7 @@ import picocli.CommandLine.Parameters;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -57,6 +60,16 @@ public class AnalyzeCommand implements Callable<Integer> {
             description = "Extra thread-pool naming rule, repeatable. Regex group 1, when present, is appended to the pool name.")
     List<String> poolPatterns;
 
+    @Option(names = "--gc-log", paramLabel = "<file>",
+            description = "GC/safepoint log(s) covering the capture window (unified logging or "
+                    + "JDK 8 PrintGCDetails); pauses overlay the charts and frozen threads inside "
+                    + "pauses are reattributed to GC, repeatable.")
+    List<Path> gcLogs;
+
+    @Option(names = "--jfr-slice", paramLabel = "<dur>", defaultValue = "1s",
+            description = "Time slice for converting JFR execution samples into synthetic dumps (default: ${DEFAULT-VALUE}).")
+    String jfrSlice;
+
     @Option(names = "--idle-patterns", paramLabel = "<file>",
             description = "Extra idle-pattern YAML (same format as the bundled idle-patterns.yaml); "
                     + "entries match first and same-name entries override the built-ins.")
@@ -74,13 +87,16 @@ public class AnalyzeCommand implements Callable<Integer> {
             description = "Diff this (incident) series against a baseline saved with --baseline-save.")
     Path baselineIn;
 
+    /** Filled when the input was a JFR recording; merged into the result JSON. */
+    private Map<String, Object> jfrExtras;
+
     @Override
     public Integer call() throws Exception {
         AnalysisOptions opts = buildOptions();
-        DumpSeries series = new DumpSetLoader().load(files);
+        DumpSeries series = loadInput();
         if (series.size() == 0) {
             System.err.println("No thread dumps found in the given file(s).");
-            return 2;
+            return 3;
         }
         List<TopHSample> topH = topFile != null
                 ? new TopHParser().parse(Files.readString(topFile, StandardCharsets.UTF_8))
@@ -100,7 +116,23 @@ public class AnalyzeCommand implements Callable<Integer> {
             }
         }
 
-        Map<String, Object> result = engine.analyze(series, topH, baseline);
+        List<GcLogParser.PauseWindow> pauses = new ArrayList<>();
+        if (gcLogs != null) {
+            GcLogParser gc = new GcLogParser();
+            for (Path g : gcLogs) {
+                try (var r = Files.newBufferedReader(g, StandardCharsets.UTF_8)) {
+                    pauses.addAll(gc.parse(r));
+                }
+            }
+            System.out.printf("Parsed %d stop-the-world window(s) from %d GC log(s)%n",
+                    pauses.size(), gcLogs.size());
+        }
+
+        Map<String, Object> result = engine.analyze(series, topH, baseline, pauses);
+        if (jfrExtras != null) {
+            result.putAll(jfrExtras);
+            addPinnedFinding(result);
+        }
 
         if (baselineSave != null) {
             Files.writeString(baselineSave, Json.write(engine.buildBaseline(series)), StandardCharsets.UTF_8);
@@ -117,6 +149,58 @@ public class AnalyzeCommand implements Callable<Integer> {
         }
         printSummary(series, result);
         return 0;
+    }
+
+    /** Loads dumps, transparently converting a JFR recording into synthetic dumps. */
+    private DumpSeries loadInput() throws Exception {
+        if (files.size() == 1 && JfrLoader.looksLikeJfr(files.get(0))) {
+            JfrLoader.JfrResult jfr = new JfrLoader().load(files.get(0), Durations.parse(jfrSlice));
+            System.out.printf("JFR: %d execution samples -> %d synthetic dumps (%s slices)%n",
+                    jfr.executionSamples(), jfr.series().size(), jfr.effectiveSlice());
+            jfrExtras = new java.util.LinkedHashMap<>();
+            if (!jfr.contention().isEmpty()) jfrExtras.put("jfrContention", jfr.contention());
+            if (!jfr.pinned().isEmpty()) jfrExtras.put("jfrPinned", jfr.pinned());
+            return jfr.series();
+        }
+        return new DumpSetLoader().load(files);
+    }
+
+    /** JFR jdk.VirtualThreadPinned events become a finding (the JSON dump can't see pinning). */
+    @SuppressWarnings("unchecked")
+    private void addPinnedFinding(Map<String, Object> result) {
+        List<Map<String, Object>> pinned = (List<Map<String, Object>>) result.get("jfrPinned");
+        if (pinned == null || pinned.isEmpty()) return;
+        double maxMs = pinned.stream()
+                .mapToDouble(p -> ((Number) p.getOrDefault("durationMs", 0)).doubleValue()).max().orElse(0);
+        Map<String, Object> f = new java.util.LinkedHashMap<>();
+        f.put("id", "virtual-thread-pinned");
+        f.put("severity", "WARNING");
+        f.put("title", pinned.size() + " virtual-thread pinning event(s), max "
+                + Math.round(maxMs) + " ms");
+        f.put("detail", "JFR recorded virtual threads pinned to their carrier (synchronized "
+                + "block or native frame during a blocking operation). While pinned, the carrier "
+                + "platform thread is consumed and cannot run other virtual threads - enough "
+                + "pinning recreates platform-thread starvation.");
+        f.put("recommendation", "Replace synchronized with ReentrantLock on the pinning paths "
+                + "(the frames in the evidence), or move blocking calls outside synchronized "
+                + "regions. -Djdk.tracePinnedThreads=full prints offenders at runtime.");
+        Map<String, Object> ev = new java.util.LinkedHashMap<>();
+        ev.put("events", pinned.size());
+        ev.put("maxDurationMs", Math.round(maxMs));
+        Object frames = pinned.get(0).get("frames");
+        if (frames != null) ev.put("frames", frames);
+        ev.put("confidence", "high");
+        ev.put("whyNotFalsePositive", "jdk.VirtualThreadPinned events are emitted by the JVM "
+                + "only when a virtual thread actually failed to unmount");
+        f.put("evidence", ev);
+        List<Map<String, Object>> findings = (List<Map<String, Object>>) (List<?>) result.get("findings");
+        findings.add(f);
+        findings.sort(java.util.Comparator.comparingInt(x ->
+                switch (String.valueOf(x.get("severity"))) {
+                    case "CRITICAL" -> 0;
+                    case "WARNING" -> 1;
+                    default -> 2;
+                }));
     }
 
     AnalysisOptions buildOptions() {
