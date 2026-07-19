@@ -47,12 +47,23 @@ class PatternLibraryTest {
     void weblogicSeriesLightsUpTheExpectedDetectors() {
         List<Map<String, Object>> fs = findings("stuck_series_weblogic.log");
         assertEquals("CRITICAL", byId(fs, "weblogic-stuck").get("severity"));
-        assertEquals("CRITICAL", byId(fs, "stuck-thread").get("severity"));
+        // the log4j convoy: blocked chains behind ExecuteThread '4' (6 waiters >= 5) are CRITICAL
+        assertTrue(fs.stream().anyMatch(f -> "stuck-thread".equals(f.get("id"))
+                        && "CRITICAL".equals(f.get("severity"))
+                        && String.valueOf(f.get("title")).contains("blocked on the same monitor")),
+                "blocked-chain stuck findings must be CRITICAL with 6 victims");
+        // network-hang stays CRITICAL because the frozen socket-read thread is [STUCK]-marked
         assertEquals("CRITICAL", byId(fs, "network-hang").get("severity"));
+        assertEquals("CRITICAL", byId(fs, "top-blocker").get("severity"));
         byId(fs, "sync-logging-bottleneck");
-        byId(fs, "top-blocker");
         Map<String, Object> leak = byId(fs, "thread-leak");
         assertTrue(String.valueOf(leak.get("title")).contains("pool-9"));
+        // every finding carries the Rule-5 evidence block
+        for (Map<String, Object> f : fs) {
+            if ("weblogic-hogging".equals(f.get("id"))) continue;
+            Map<String, Object> ev = (Map<String, Object>) f.get("evidence");
+            assertTrue(ev.containsKey("confidence"), f.get("id") + " missing confidence");
+        }
     }
 
     @Test

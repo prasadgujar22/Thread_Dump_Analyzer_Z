@@ -1,0 +1,63 @@
+# TDA idle-pattern knowledge base.
+#
+# A thread whose top 5 stack frames contain any listed frame substring is classified
+# "idle" (waiting for work / events) and is never reported as stuck or long-running.
+# Matching is substring-based on the frame signature (class.method) after JDK module
+# prefixes are stripped, so line numbers and `java.base@21/` never break a match.
+#
+# Extend or override at runtime with:  tda analyze ... --idle-patterns my-patterns.yaml
+# (user entries are checked first; a user entry with the same name replaces this one).
+patterns:
+  - name: socket-accept
+    label: idle (acceptor/await loop)
+    frames:
+      - sun.nio.ch.Net.accept
+      - sun.nio.ch.NioSocketImpl.accept
+      - java.net.PlainSocketImpl.socketAccept
+      - java.net.AbstractPlainSocketImpl.accept
+      - java.net.ServerSocket.accept
+  - name: selector-wait
+    label: idle (selector/poller wait)
+    frames:
+      - sun.nio.ch.EPoll.wait
+      - sun.nio.ch.EPollArrayWrapper.epollWait
+      - sun.nio.ch.EPollSelectorImpl.doSelect
+      - sun.nio.ch.KQueue.poll
+      - sun.nio.ch.WEPoll.wait
+      - sun.nio.ch.Net.poll
+      - sun.nio.ch.WindowsSelectorImpl$SubSelector.poll0
+      - io.netty.channel.epoll.Native.epollWait
+  - name: reference-processing
+    label: idle (reference processing)
+    frames:
+      - java.lang.ref.Reference.waitForReferencePendingList
+      - jdk.internal.ref.CleanerImpl.run
+  - name: executor-idle
+    label: idle (waiting for work)
+    frames:
+      - java.util.concurrent.ThreadPoolExecutor.getTask
+      - java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take
+      - java.util.concurrent.LinkedBlockingQueue.take
+      - java.util.concurrent.LinkedBlockingQueue.poll
+      - java.util.concurrent.LinkedBlockingDeque.takeFirst
+      - java.util.concurrent.ForkJoinPool.awaitWork
+      - java.util.concurrent.ForkJoinPool.scan
+      - java.util.concurrent.DelayQueue.take
+  - name: object-wait-idle
+    label: idle (timer/queue wait)
+    frames:
+      - java.util.TimerThread.mainLoop
+      - java.lang.ref.ReferenceQueue.remove
+  - name: container-idle
+    label: idle (container idle loop)
+    frames:
+      - org.apache.catalina.core.StandardServer.await
+      - org.apache.tomcat.util.net.NioEndpoint$Poller.run
+      - org.apache.tomcat.util.net.Acceptor.run
+      - org.apache.tomcat.util.threads.TaskQueue.take
+      - weblogic.work.ExecuteThread.waitForRequest
+      - weblogic.socket.PosixSocketMuxer.processSockets
+      - weblogic.socket.EPollSocketMuxer.processSockets
+      - weblogic.socket.SocketMuxer.processSockets
+      - com.ibm.ws.util.BoundedBuffer.waitGet_
+      - io.undertow.server.protocol.framed.FrameHandler.run

@@ -15,6 +15,8 @@ public final class AnalysisOptions {
     public int maxFramesShown = 40;
     /** Minimum absolute growth for a pool to be flagged as a thread-leak suspect. */
     public int leakMinGrowth = 5;
+    /** Threads blocked behind one holder before a finding escalates to CRITICAL (Rule 5). */
+    public int criticalVictims = 5;
     /** User-defined pool rules: pool name → thread-name regex (run before built-ins). */
     public final Map<String, String> poolPatterns = new LinkedHashMap<>();
 
@@ -25,6 +27,7 @@ public final class AnalysisOptions {
         m.put("topStacks", topStacks);
         m.put("maxFramesShown", maxFramesShown);
         m.put("leakMinGrowth", leakMinGrowth);
+        m.put("criticalVictims", criticalVictims);
         if (!poolPatterns.isEmpty()) m.put("poolPatterns", new LinkedHashMap<>(poolPatterns));
         return m;
     }

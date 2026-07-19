@@ -1,10 +1,11 @@
 package com.tda.core.analysis.pattern;
 
-import com.tda.core.analysis.series.PersistentLockHolders;
 import com.tda.core.analysis.series.PoolTrend;
+import com.tda.core.analysis.series.StuckClassifier;
 import com.tda.core.analysis.series.StuckThreadDetector;
 import com.tda.core.analysis.single.DeadlockDetector;
 import com.tda.core.analysis.single.LockGraph;
+import com.tda.core.analysis.single.PoolGrouper;
 import com.tda.core.model.ThreadDump;
 import com.tda.core.model.ThreadInfo;
 import com.tda.core.model.ThreadState;
@@ -59,7 +60,11 @@ final class DeadlockPattern implements Pattern {
                                 + "Until a fix ships, only a JVM restart clears a deadlock.")
                         .evidence("dump", i)
                         .evidence("threads", c.threadNames())
-                        .evidence("source", c.source()));
+                        .evidence("source", c.source())
+                        .evidence("confidence", "high")
+                        .evidence("whyNotFalsePositive", "jvm".equals(c.source())
+                                ? "the JVM itself verified this lock cycle"
+                                : "a closed cycle in the wait-for graph is impossible for healthy threads"));
             }
         }
         return out;
@@ -92,7 +97,11 @@ final class WebLogicStuckPattern implements Pattern {
                             + "corresponding backend. Consider a WorkManager with max-stuck-thread-time and "
                             + "stuck-thread-work-manager actions for automatic mitigation.")
                     .evidence("threads", new ArrayList<>(stuckDumps.keySet()))
-                    .evidence("dumpsSeen", stuckDumps.values().stream().map(List::size).toList()));
+                    .evidence("dumpsSeen", stuckDumps.values().stream().map(List::size).toList())
+                    .evidence("confidence", "high")
+                    .evidence("whyNotFalsePositive", "WebLogic's own health monitor timed these "
+                            + "threads over StuckThreadMaxTime before marking them - the marker is "
+                            + "measured, not inferred from one snapshot"));
         }
         if (!hoggingDumps.isEmpty()) {
             out.add(new Finding("weblogic-hogging", WARNING,
@@ -107,29 +116,66 @@ final class WebLogicStuckPattern implements Pattern {
     }
 }
 
-/** Fingerprint-based long-runner detection (series analysis) promoted to findings. */
+/**
+ * Fingerprint-persistence candidates promoted to findings ONLY after {@code StuckClassifier}
+ * ruled out idle patterns and housekeeping and corroborated with cpu deltas (Rules 1-3, 5).
+ */
 final class StuckThreadPattern implements Pattern {
     @Override public List<Finding> detect(PatternContext ctx) {
-        if (ctx.stuckThreads().isEmpty() || ctx.series().size() < 2) return List.of();
+        if (ctx.stuckVerdicts().isEmpty() || ctx.series().size() < 2) return List.of();
         List<Finding> out = new ArrayList<>();
-        for (StuckThreadDetector.Stuck st : ctx.stuckThreads()) {
-            boolean wholeSeries = st.runLength() >= ctx.series().size();
-            out.add(new Finding("stuck-thread", wholeSeries ? CRITICAL : WARNING,
-                    "Thread frozen for " + st.runLength() + " consecutive dumps: " + shortName(st.name()),
+        for (StuckClassifier.Verdict v : ctx.stuckVerdicts()) {
+            StuckThreadDetector.Stuck st = v.stuck();
+            if (v.kind() == StuckClassifier.Kind.NATIVE_WAIT) {
+                out.add(base(v, "idle-native-wait", INFO,
+                        "Persistent native wait (no CPU progress): " + shortName(st.name()),
+                        "\"" + st.name() + "\" kept the same native-frame stack across dumps "
+                                + st.fromDump() + ".." + st.toDump() + " but consumed almost no CPU - a "
+                                + "kernel-level wait the JVM reports as RUNNABLE, not a stuck computation.",
+                        "Usually harmless. If this thread is supposed to be serving a request, the remote "
+                                + "side is not answering - add a read timeout to the underlying call."));
+                continue;
+            }
+            if (!v.genuine()) continue;
+            Finding.Severity sev = "CRITICAL".equals(v.severity()) ? CRITICAL : WARNING;
+            String title = switch (v.kind()) {
+                case SPINNING -> "Spinning thread (CPU-corroborated busy loop): " + shortName(st.name());
+                case BLOCKED_CHAIN -> "Thread blocked on the same monitor for " + st.runLength()
+                        + " consecutive dumps: " + shortName(st.name());
+                default -> "Thread frozen for " + st.runLength() + " consecutive dumps: " + shortName(st.name());
+            };
+            String rec = switch (v.kind()) {
+                case SPINNING -> "This is the signature of an infinite loop or busy-wait. The frozen frames "
+                        + "point at the looping code - profile or fix that path. If it also holds a lock, "
+                        + "every waiter is starving behind a spinning core.";
+                case BLOCKED_CHAIN -> "Follow the lock to its holder in the blocker tree; shrinking the "
+                        + "holder's critical section or fixing its blocking call releases this whole chain.";
+                default -> "The frozen frames below show exactly where it sits. If the top frame is a "
+                        + "socket/JDBC read, add a timeout on that call; if it is a computation, profile it.";
+            };
+            out.add(base(v, "stuck-thread", sev, title,
                     "\"" + st.name() + "\" shows the identical top-" + ctx.options().fingerprintDepth
-                            + "-frame stack in dumps " + st.fromDump() + ".." + st.toDump()
-                            + " while " + String.join("/", st.states())
-                            + ". A healthy worker thread changes its stack between dumps taken seconds apart.",
-                    "The frozen frames below show exactly where it sits. If the top frame is a socket/JDBC "
-                            + "read, add a timeout on that call. If it is BLOCKED, follow the lock to the "
-                            + "holder (see the blocker tree). If it is a computation loop, profile that code path.")
-                    .evidence("thread", st.name())
-                    .evidence("fromDump", st.fromDump())
-                    .evidence("toDump", st.toDump())
-                    .evidence("states", st.states())
-                    .evidence("frames", st.frozenFrames().subList(0, Math.min(12, st.frozenFrames().size()))));
+                            + "-frame stack in dumps " + st.fromDump() + ".." + st.toDump() + " while "
+                            + String.join("/", st.states()) + ". " + v.why() + ".",
+                    rec));
         }
         return out;
+    }
+
+    private Finding base(StuckClassifier.Verdict v, String id, Finding.Severity sev,
+                         String title, String detail, String rec) {
+        StuckThreadDetector.Stuck st = v.stuck();
+        Finding f = new Finding(id, sev, title, detail, rec)
+                .evidence("thread", st.name())
+                .evidence("dumps", st.fromDump() + ".." + st.toDump())
+                .evidence("states", st.states())
+                .evidence("confidence", v.confidence())
+                .evidence("whyNotFalsePositive", v.why());
+        if (st.cpuDeltaMillis() != null) f.evidence("cpuDeltaMillis", st.cpuDeltaMillis());
+        if (st.wallClockSeconds() != null) f.evidence("wallClockSeconds", st.wallClockSeconds());
+        if (v.victims() > 0) f.evidence("victims", v.victims());
+        f.evidence("frames", st.frozenFrames().subList(0, Math.min(12, st.frozenFrames().size())));
+        return f;
     }
 
     private String shortName(String name) {
@@ -177,7 +223,11 @@ final class ConnectionPoolExhaustionPattern implements Pattern {
                 .evidence("dump", worstDump)
                 .evidence("waitingThreads", worst)
                 .evidence("threads", Frames.names(worstMatches, 15))
-                .evidence("frame", worstMatches.isEmpty() ? "" : worstMatches.get(0).matchedFrame()));
+                .evidence("frame", worstMatches.isEmpty() ? "" : worstMatches.get(0).matchedFrame())
+                .evidence("confidence", "high")
+                .evidence("whyNotFalsePositive", "these threads sit inside the pool's borrow/await "
+                        + "call itself, not in an idle executor queue - they asked for a connection "
+                        + "and are still waiting"));
     }
 }
 
@@ -213,7 +263,10 @@ final class SyncLoggingPattern implements Pattern {
                 .evidence("dump", worstDump)
                 .evidence("blockedThreads", worst)
                 .evidence("threads", Frames.names(worstMatches, 15))
-                .evidence("frame", worstMatches.isEmpty() ? "" : worstMatches.get(0).matchedFrame()));
+                .evidence("frame", worstMatches.isEmpty() ? "" : worstMatches.get(0).matchedFrame())
+                .evidence("confidence", "high")
+                .evidence("whyNotFalsePositive", "BLOCKED (not WAITING) on the appender lock means "
+                        + "real monitor contention on the logging write path"));
     }
 }
 
@@ -228,9 +281,15 @@ final class NetworkHangPattern implements Pattern {
     };
 
     @Override public List<Finding> detect(PatternContext ctx) {
-        // strongest signal: the same thread frozen in a socket read across dumps
+        // strongest signal: the same thread frozen in a socket read across dumps.
+        // Idle/housekeeping verdicts are excluded (selector and accept loops live in
+        // socket frames by design); NATIVE_WAIT and genuine verdicts qualify.
         List<String> frozen = new ArrayList<>();
-        for (StuckThreadDetector.Stuck st : ctx.stuckThreads()) {
+        for (StuckClassifier.Verdict v : ctx.stuckVerdicts()) {
+            if (v.kind() == StuckClassifier.Kind.IDLE
+                    || v.kind() == StuckClassifier.Kind.HOUSEKEEPING
+                    || v.kind() == StuckClassifier.Kind.DISCARDED) continue;
+            StuckThreadDetector.Stuck st = v.stuck();
             if (!st.frozenFrames().isEmpty() && containsSocketRead(st.frozenFrames())) frozen.add(st.name());
         }
         int worst = 0, worstDump = -1;
@@ -245,7 +304,14 @@ final class NetworkHangPattern implements Pattern {
             if (m.size() > worst) { worst = m.size(); worstDump = i; worstMatches = m; }
         }
         if (worst == 0 && frozen.isEmpty()) return List.of();
-        boolean severe = !frozen.isEmpty() || worst >= 5;
+        // Rule 5: CRITICAL needs demonstrable impact - a frozen socket read on a thread the
+        // container itself marked stuck, or a large share of workers pinned at once.
+        boolean stuckMarked = frozen.isEmpty() && ctx.series().size() > 0 ? false
+                : ctx.series().dumps().stream().flatMap(d -> d.threads().stream())
+                    .filter(t -> PoolGrouper.isStuckMarked(t.name()))
+                    .anyMatch(t -> frozen.contains(
+                            com.tda.core.analysis.series.SeriesIndex.normalizedName(t.name())));
+        boolean severe = stuckMarked || worst >= ctx.options().criticalVictims;
         StringBuilder detail = new StringBuilder();
         if (worst > 0) {
             detail.append("Dump ").append(worstDump).append(" has ").append(worst)
@@ -258,7 +324,8 @@ final class NetworkHangPattern implements Pattern {
         } else {
             detail.append("A thread that stays in socketRead0 across dumps indicates a missing read timeout.");
         }
-        return List.of(new Finding("network-hang", severe ? CRITICAL : INFO,
+        Finding.Severity sev = severe ? CRITICAL : (frozen.isEmpty() ? INFO : WARNING);
+        return List.of(new Finding("network-hang", sev,
                 "Threads pinned in blocking socket reads" + (frozen.isEmpty() ? "" : " across dumps"),
                 detail.toString(),
                 "Set explicit read timeouts on every outbound call: JDBC (oracle.net.READ_TIMEOUT / "
@@ -268,7 +335,12 @@ final class NetworkHangPattern implements Pattern {
                 .evidence("dump", worstDump)
                 .evidence("runnableInSocketRead", worst)
                 .evidence("frozenAcrossDumps", frozen)
-                .evidence("threads", Frames.names(worstMatches, 15)));
+                .evidence("threads", Frames.names(worstMatches, 15))
+                .evidence("confidence", frozen.isEmpty() ? "low" : "high")
+                .evidence("whyNotFalsePositive", frozen.isEmpty()
+                        ? "single-dump snapshot only - a socket read can be momentary; treat as a hint"
+                        : "socket-read stacks (not accept/selector idle loops - those are excluded) "
+                          + "unchanged across consecutive dumps mean the remote end is not answering"));
     }
 
     private boolean containsSocketRead(List<String> frames) {
@@ -302,7 +374,10 @@ final class ClassloaderContentionPattern implements Pattern {
                         + "Class.forName / reflection lookups instead of resolving per request.")
                 .evidence("dump", worstDump)
                 .evidence("blockedThreads", worst)
-                .evidence("threads", Frames.names(worstMatches, 15)));
+                .evidence("threads", Frames.names(worstMatches, 15))
+                .evidence("confidence", "medium")
+                .evidence("whyNotFalsePositive", "multiple threads BLOCKED inside loadClass at the "
+                        + "same moment is classloader lock contention, not routine lazy loading"));
     }
 }
 
@@ -339,7 +414,11 @@ final class FinalizerBacklogPattern implements Pattern {
                         + "Capture a heap histogram (jmap -histo) and look for java.lang.ref.Finalizer counts.")
                 .evidence("dumps", busyDumps)
                 .evidence("finalizerState", state)
-                .evidence("frame", frame));
+                .evidence("frame", frame)
+                .evidence("confidence", persistent ? "high" : "low")
+                .evidence("whyNotFalsePositive", "the Finalizer thread's idle state is WAITING on "
+                        + "its ReferenceQueue; any other persistent state means finalization work "
+                        + "is queuing"));
     }
 }
 
@@ -363,7 +442,8 @@ final class TopBlockerPattern implements Pattern {
         if (bestThread == null || bestCount < 2) return List.of();
         LockGraph g = ctx.graphs().get(bestDump);
         ThreadInfo t = g.thread(bestThread);
-        Finding f = new Finding("top-blocker", bestCount >= 10 ? CRITICAL : WARNING,
+        Finding f = new Finding("top-blocker",
+                bestCount >= ctx.options().criticalVictims ? CRITICAL : WARNING,
                 "Top blocker: \"" + bestThread + "\" starves " + bestCount + " thread(s)",
                 "In dump " + bestDump + ", releasing the locks held by \"" + bestThread + "\" would "
                         + "directly unblock " + bestDirect + " thread(s) and transitively up to " + bestCount
@@ -375,7 +455,11 @@ final class TopBlockerPattern implements Pattern {
                 .evidence("dump", bestDump)
                 .evidence("thread", bestThread)
                 .evidence("directVictims", bestDirect)
-                .evidence("transitiveVictims", bestCount);
+                .evidence("transitiveVictims", bestCount)
+                .evidence("confidence", "high")
+                .evidence("whyNotFalsePositive", bestCount + " thread(s) are observably parked in the "
+                        + "dump waiting on locks this thread holds - counted from the wait-for graph, "
+                        + "not inferred");
         if (t != null && !t.frames().isEmpty()) {
             List<String> frames = new ArrayList<>();
             for (int i = 0; i < Math.min(8, t.frames().size()); i++) frames.add(t.frames().get(i).raw());
@@ -404,7 +488,10 @@ final class ThreadLeakPattern implements Pattern {
                             + "shutdown(), and give pools a bounded maximum plus a rejection policy.")
                     .evidence("pool", t.pool())
                     .evidence("counts", t.counts())
-                    .evidence("growth", t.growth()));
+                    .evidence("growth", t.growth())
+                    .evidence("confidence", "medium")
+                    .evidence("whyNotFalsePositive", "strictly monotonic growth across every dump in "
+                            + "the series - normal pools shrink or plateau between snapshots"));
         }
         return out;
     }

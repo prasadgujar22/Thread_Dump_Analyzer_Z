@@ -1,9 +1,12 @@
 package com.tda.core;
 
+import com.tda.core.analysis.classify.IdlePatterns;
+import com.tda.core.analysis.classify.ThreadClassifier;
 import com.tda.core.analysis.pattern.Finding;
 import com.tda.core.analysis.pattern.PatternContext;
 import com.tda.core.analysis.pattern.PatternLibrary;
 import com.tda.core.analysis.series.Baseline;
+import com.tda.core.analysis.series.StuckClassifier;
 import com.tda.core.analysis.series.PersistentLockHolders;
 import com.tda.core.analysis.series.PoolTrend;
 import com.tda.core.analysis.series.SeriesIndex;
@@ -40,9 +43,16 @@ public final class AnalysisEngine {
     public static final String VERSION = "1.0.0";
 
     private final AnalysisOptions options;
+    private final ThreadClassifier classifier;
 
     public AnalysisEngine(AnalysisOptions options) {
+        this(options, null);
+    }
+
+    /** @param idlePatterns idle-pattern knowledge base; null uses the bundled defaults. */
+    public AnalysisEngine(AnalysisOptions options, IdlePatterns idlePatterns) {
         this.options = options;
+        this.classifier = new ThreadClassifier(idlePatterns);
     }
 
     public Map<String, Object> analyze(DumpSeries series, List<TopHSample> topH) {
@@ -73,11 +83,11 @@ public final class AnalysisEngine {
         }
         root.put("dumps", dumps);
 
-        SeriesResults sr = analyzeSeries(series, pools, baselineDoc);
+        SeriesResults sr = analyzeSeries(series, pools, graphs, topH, baselineDoc);
         root.put("series", sr.json);
 
         PatternContext ctx = new PatternContext(series, graphs, deadlocksPerDump,
-                sr.stuck, sr.holders, sr.trends, options);
+                sr.verdicts, sr.holders, sr.trends, options);
         List<Object> findings = new ArrayList<>();
         for (Finding f : new PatternLibrary().run(ctx)) findings.add(f.toJson());
         root.put("findings", findings);
@@ -85,7 +95,7 @@ public final class AnalysisEngine {
     }
 
     private record SeriesResults(Map<String, Object> json,
-                                 List<StuckThreadDetector.Stuck> stuck,
+                                 List<StuckClassifier.Verdict> verdicts,
                                  List<PersistentLockHolders.Holder> holders,
                                  List<PoolTrend.Trend> trends) {}
 
@@ -95,16 +105,25 @@ public final class AnalysisEngine {
     }
 
     private SeriesResults analyzeSeries(DumpSeries series, PoolGrouper pools,
+                                        List<LockGraph> graphs, List<TopHSample> topH,
                                         Map<String, Object> baselineDoc) {
         Map<String, Object> s = new LinkedHashMap<>();
         SeriesIndex index = SeriesIndex.build(series);
 
-        List<StuckThreadDetector.Stuck> stuck = new StuckThreadDetector(
-                options.stuckK, options.fingerprintDepth, options.maxFramesShown).detect(index);
+        // candidates -> Rules 1-3 verdicts; only genuine verdicts become findings/flags
+        List<StuckThreadDetector.Stuck> candidates = new StuckThreadDetector(
+                options.stuckK, options.fingerprintDepth, options.maxFramesShown)
+                .detect(index, series);
+        List<StuckClassifier.Verdict> verdicts = new StuckClassifier(
+                classifier, pools, options.criticalVictims)
+                .classify(candidates, index, graphs, topH);
+
         List<Object> stuckRows = new ArrayList<>();
         Set<String> flagged = new LinkedHashSet<>();
         Map<String, Set<String>> flagReasons = new LinkedHashMap<>();
-        for (StuckThreadDetector.Stuck st : stuck) {
+        for (StuckClassifier.Verdict v : verdicts) {
+            if (!v.genuine()) continue;
+            StuckThreadDetector.Stuck st = v.stuck();
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("name", st.name());
             row.put("tid", st.tid());
@@ -113,6 +132,13 @@ public final class AnalysisEngine {
             row.put("dumpsUnchanged", st.runLength());
             row.put("states", st.states());
             row.put("fingerprint", st.fingerprint());
+            row.put("verdict", v.kind().name());
+            row.put("severity", v.severity());
+            row.put("confidence", v.confidence());
+            row.put("why", v.why());
+            if (st.cpuDeltaMillis() != null) row.put("cpuDeltaMillis", st.cpuDeltaMillis());
+            if (st.wallClockSeconds() != null) row.put("wallClockSeconds", st.wallClockSeconds());
+            if (v.victims() > 0) row.put("victims", v.victims());
             row.put("frozenFrames", st.frozenFrames());
             stuckRows.add(row);
             flag(flagged, flagReasons, st.key(), "stuck");
@@ -181,7 +207,7 @@ public final class AnalysisEngine {
         if (baselineDoc != null) {
             s.put("baselineDiff", new Baseline().diff(series, pools, options.topStacks, baselineDoc));
         }
-        return new SeriesResults(s, stuck, holderList, trendList);
+        return new SeriesResults(s, verdicts, holderList, trendList);
     }
 
     private static void flag(Set<String> flagged, Map<String, Set<String>> reasons,
@@ -303,6 +329,8 @@ public final class AnalysisEngine {
             if (t.elapsedSeconds() != null) row.put("elapsedSeconds", t.elapsedSeconds());
             String pool = pools.poolOf(t.name());
             if (pool != null) row.put("pool", pool);
+            ThreadClassifier.Classification cls = classifier.classify(t);
+            if (cls.label() != null) row.put("class", cls.label());
             if (!t.frames().isEmpty()) {
                 String key = Long.toHexString(t.stackHash());
                 stackTable.computeIfAbsent(key, k -> frameList(t));

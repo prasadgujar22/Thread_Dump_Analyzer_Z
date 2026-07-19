@@ -1,0 +1,275 @@
+2026-07-16 17:00:00
+Full thread dump OpenJDK 64-Bit Server VM (17.0.11+9-LTS mixed mode, sharing):
+
+"cache-refresher" #40 prio=5 os_prio=0 cpu=180.00ms elapsed=500.00s tid=0x00007f4bc4a00000 nid=0x7100 runnable  [0x00007f4ba8600000]
+   java.lang.Thread.State: RUNNABLE
+	at java.base@21.0.11/java.net.SocketInputStream.socketRead0(Native Method)
+	at java.base@21.0.11/java.net.SocketInputStream.read(SocketInputStream.java:168)
+	at com.acme.cache.RemoteLoader.fetchAll(RemoteLoader.java:91)
+	at com.acme.cache.CacheRegistry.refresh(CacheRegistry.java:55)
+	- locked <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.cache.RefreshJob.run(RefreshJob.java:33)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-1" #51 daemon prio=5 os_prio=0 cpu=11.00ms elapsed=500.00s tid=0x00007f4bc4b01000 nid=0x7101 waiting for monitor entry  [0x00007f4ba8701000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-2" #52 daemon prio=5 os_prio=0 cpu=12.00ms elapsed=500.00s tid=0x00007f4bc4b02000 nid=0x7102 waiting for monitor entry  [0x00007f4ba8702000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-3" #53 daemon prio=5 os_prio=0 cpu=13.00ms elapsed=500.00s tid=0x00007f4bc4b03000 nid=0x7103 waiting for monitor entry  [0x00007f4ba8703000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-4" #54 daemon prio=5 os_prio=0 cpu=14.00ms elapsed=500.00s tid=0x00007f4bc4b04000 nid=0x7104 waiting for monitor entry  [0x00007f4ba8704000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-5" #55 daemon prio=5 os_prio=0 cpu=15.00ms elapsed=500.00s tid=0x00007f4bc4b05000 nid=0x7105 waiting for monitor entry  [0x00007f4ba8705000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-6" #56 daemon prio=5 os_prio=0 cpu=16.00ms elapsed=500.00s tid=0x00007f4bc4b06000 nid=0x7106 waiting for monitor entry  [0x00007f4ba8706000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 cpu=40.00ms elapsed=500.00s tid=0x00007f4bc40c8000 nid=0x7004 runnable
+
+JNI global refs: 55, weak refs: 0
+
+2026-07-16 17:00:20
+Full thread dump OpenJDK 64-Bit Server VM (17.0.11+9-LTS mixed mode, sharing):
+
+"cache-refresher" #40 prio=5 os_prio=0 cpu=180.00ms elapsed=520.00s tid=0x00007f4bc4a00000 nid=0x7100 runnable  [0x00007f4ba8600000]
+   java.lang.Thread.State: RUNNABLE
+	at java.base@21.0.11/java.net.SocketInputStream.socketRead0(Native Method)
+	at java.base@21.0.11/java.net.SocketInputStream.read(SocketInputStream.java:168)
+	at com.acme.cache.RemoteLoader.fetchAll(RemoteLoader.java:91)
+	at com.acme.cache.CacheRegistry.refresh(CacheRegistry.java:55)
+	- locked <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.cache.RefreshJob.run(RefreshJob.java:33)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-1" #51 daemon prio=5 os_prio=0 cpu=11.00ms elapsed=520.00s tid=0x00007f4bc4b01000 nid=0x7101 waiting for monitor entry  [0x00007f4ba8701000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-2" #52 daemon prio=5 os_prio=0 cpu=12.00ms elapsed=520.00s tid=0x00007f4bc4b02000 nid=0x7102 waiting for monitor entry  [0x00007f4ba8702000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-3" #53 daemon prio=5 os_prio=0 cpu=13.00ms elapsed=520.00s tid=0x00007f4bc4b03000 nid=0x7103 waiting for monitor entry  [0x00007f4ba8703000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-4" #54 daemon prio=5 os_prio=0 cpu=14.00ms elapsed=520.00s tid=0x00007f4bc4b04000 nid=0x7104 waiting for monitor entry  [0x00007f4ba8704000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-5" #55 daemon prio=5 os_prio=0 cpu=15.00ms elapsed=520.00s tid=0x00007f4bc4b05000 nid=0x7105 waiting for monitor entry  [0x00007f4ba8705000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-6" #56 daemon prio=5 os_prio=0 cpu=16.00ms elapsed=520.00s tid=0x00007f4bc4b06000 nid=0x7106 waiting for monitor entry  [0x00007f4ba8706000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 cpu=40.00ms elapsed=520.00s tid=0x00007f4bc40c8000 nid=0x7004 runnable
+
+JNI global refs: 55, weak refs: 0
+
+2026-07-16 17:00:45
+Full thread dump OpenJDK 64-Bit Server VM (17.0.11+9-LTS mixed mode, sharing):
+
+"cache-refresher" #40 prio=5 os_prio=0 cpu=180.00ms elapsed=545.00s tid=0x00007f4bc4a00000 nid=0x7100 runnable  [0x00007f4ba8600000]
+   java.lang.Thread.State: RUNNABLE
+	at java.base@21.0.11/java.net.SocketInputStream.socketRead0(Native Method)
+	at java.base@21.0.11/java.net.SocketInputStream.read(SocketInputStream.java:168)
+	at com.acme.cache.RemoteLoader.fetchAll(RemoteLoader.java:91)
+	at com.acme.cache.CacheRegistry.refresh(CacheRegistry.java:55)
+	- locked <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.cache.RefreshJob.run(RefreshJob.java:33)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-1" #51 daemon prio=5 os_prio=0 cpu=11.00ms elapsed=545.00s tid=0x00007f4bc4b01000 nid=0x7101 waiting for monitor entry  [0x00007f4ba8701000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-2" #52 daemon prio=5 os_prio=0 cpu=12.00ms elapsed=545.00s tid=0x00007f4bc4b02000 nid=0x7102 waiting for monitor entry  [0x00007f4ba8702000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-3" #53 daemon prio=5 os_prio=0 cpu=13.00ms elapsed=545.00s tid=0x00007f4bc4b03000 nid=0x7103 waiting for monitor entry  [0x00007f4ba8703000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-4" #54 daemon prio=5 os_prio=0 cpu=14.00ms elapsed=545.00s tid=0x00007f4bc4b04000 nid=0x7104 waiting for monitor entry  [0x00007f4ba8704000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-5" #55 daemon prio=5 os_prio=0 cpu=15.00ms elapsed=545.00s tid=0x00007f4bc4b05000 nid=0x7105 waiting for monitor entry  [0x00007f4ba8705000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"http-nio-8080-exec-6" #56 daemon prio=5 os_prio=0 cpu=16.00ms elapsed=545.00s tid=0x00007f4bc4b06000 nid=0x7106 waiting for monitor entry  [0x00007f4ba8706000]
+   java.lang.Thread.State: BLOCKED (on object monitor)
+	at com.acme.cache.CacheRegistry.lookup(CacheRegistry.java:88)
+	- waiting to lock <0x00000000e5000010> (a com.acme.cache.CacheRegistry)
+	at com.acme.web.PriceController.get(PriceController.java:41)
+	at org.apache.catalina.core.ApplicationFilterChain.doFilter(ApplicationFilterChain.java:166)
+	at org.apache.tomcat.util.threads.TaskThread$WrappingRunnable.run(TaskThread.java:61)
+	at java.base@21.0.11/java.lang.Thread.run(Thread.java:840)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 cpu=40.00ms elapsed=545.00s tid=0x00007f4bc40c8000 nid=0x7004 runnable
+
+JNI global refs: 55, weak refs: 0

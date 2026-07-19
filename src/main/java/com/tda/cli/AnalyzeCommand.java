@@ -2,6 +2,7 @@ package com.tda.cli;
 
 import com.tda.core.AnalysisEngine;
 import com.tda.core.AnalysisOptions;
+import com.tda.core.analysis.classify.IdlePatterns;
 import com.tda.core.json.Json;
 import com.tda.core.json.JsonParser;
 import com.tda.core.model.DumpSeries;
@@ -56,6 +57,15 @@ public class AnalyzeCommand implements Callable<Integer> {
             description = "Extra thread-pool naming rule, repeatable. Regex group 1, when present, is appended to the pool name.")
     List<String> poolPatterns;
 
+    @Option(names = "--idle-patterns", paramLabel = "<file>",
+            description = "Extra idle-pattern YAML (same format as the bundled idle-patterns.yaml); "
+                    + "entries match first and same-name entries override the built-ins.")
+    Path idlePatternsFile;
+
+    @Option(names = "--critical-victims", paramLabel = "<n>", defaultValue = "5",
+            description = "Threads blocked behind one holder before a finding escalates to CRITICAL (default: ${DEFAULT-VALUE}).")
+    int criticalVictims;
+
     @Option(names = "--baseline-save", paramLabel = "<file>",
             description = "Treat this series as healthy and save a baseline document for later --baseline diffs.")
     Path baselineSave;
@@ -76,7 +86,10 @@ public class AnalyzeCommand implements Callable<Integer> {
                 ? new TopHParser().parse(Files.readString(topFile, StandardCharsets.UTF_8))
                 : List.of();
 
-        AnalysisEngine engine = new AnalysisEngine(opts);
+        IdlePatterns idlePatterns = idlePatternsFile != null
+                ? IdlePatterns.withUserFile(idlePatternsFile)
+                : IdlePatterns.loadDefault();
+        AnalysisEngine engine = new AnalysisEngine(opts, idlePatterns);
 
         Map<String, Object> baseline = null;
         if (baselineIn != null) {
@@ -111,6 +124,7 @@ public class AnalyzeCommand implements Callable<Integer> {
         opts.stuckK = stuckK;
         opts.fingerprintDepth = fingerprintDepth;
         opts.topStacks = topStacks;
+        opts.criticalVictims = criticalVictims;
         if (poolPatterns != null) {
             for (String p : poolPatterns) {
                 int eq = p.indexOf('=');
