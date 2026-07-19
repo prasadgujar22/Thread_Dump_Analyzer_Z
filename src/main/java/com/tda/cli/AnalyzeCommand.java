@@ -14,6 +14,7 @@ import com.tda.core.parse.DumpSetLoader;
 import com.tda.core.parse.GcLogParser;
 import com.tda.core.parse.JfrLoader;
 import com.tda.core.parse.TopHParser;
+import com.tda.history.HistoryStore;
 import com.tda.report.HtmlReport;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -31,9 +32,31 @@ import java.util.concurrent.Callable;
         description = "Analyze one thread dump or an ordered series (files may each contain several dumps).")
 public class AnalyzeCommand implements Callable<Integer> {
 
-    @Parameters(arity = "1..*", paramLabel = "<files>",
-            description = "Dump files: raw jstack/jcmd output or server logs with embedded kill -3 dumps.")
+    @Parameters(arity = "0..*", paramLabel = "<files>",
+            description = "Dump files: raw jstack/jcmd output, server logs with embedded kill -3 "
+                    + "dumps, a JDK 21+ JSON dump, or a .jfr recording.")
     List<Path> files;
+
+    @Option(names = "--cluster", paramLabel = "<name=glob>",
+            description = "Cluster mode, repeatable: analyze each node's series and compare across "
+                    + "the fleet with deterministic outlier scoring (e.g. --cluster nodeA=nodeA/*.txt).")
+    List<String> clusterSpecs;
+
+    @Option(names = "--cluster-manifest", paramLabel = "<file>",
+            description = "File with one name=glob line per node (alternative to repeating --cluster).")
+    Path clusterManifest;
+
+    @Option(names = "--label", paramLabel = "<build>",
+            description = "Tag this analysis in the local history (release-drift tracking; see tda compare).")
+    String label;
+
+    @Option(names = "--no-history", description = "Do not record this analysis in the local history db.")
+    boolean noHistory;
+
+    @Option(names = "--history-db", paramLabel = "<path>",
+            description = "History database location (default: ~/.tda/history.db). Contains stack "
+                    + "frames - treat it with the same sensitivity as the dumps.")
+    Path historyDb;
 
     @Option(names = "--json", paramLabel = "<file>", description = "Write the full analysis as JSON.")
     Path jsonOut;
@@ -105,6 +128,13 @@ public class AnalyzeCommand implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         AnalysisOptions opts = buildOptions();
+        if (clusterSpecs != null || clusterManifest != null) {
+            return runCluster(opts);
+        }
+        if (files == null || files.isEmpty()) {
+            System.err.println("Give at least one dump file (or use --cluster).");
+            return 2;
+        }
         DumpSeries series = loadInput();
         if (series.size() == 0) {
             System.err.println("No thread dumps found in the given file(s).");
@@ -149,6 +179,7 @@ public class AnalyzeCommand implements Callable<Integer> {
             result.putAll(jfrExtras);
             addPinnedFinding(result);
         }
+        recordHistory(result, engine.buildBaseline(series));
 
         if (baselineSave != null) {
             Files.writeString(baselineSave, Json.write(engine.buildBaseline(series)), StandardCharsets.UTF_8);
@@ -165,6 +196,115 @@ public class AnalyzeCommand implements Callable<Integer> {
         }
         printSummary(series, result);
         return 0;
+    }
+
+    /** Cluster mode: per-node analysis + cross-fleet comparison; writes the same artifacts. */
+    private Integer runCluster(AnalysisOptions opts) throws Exception {
+        Map<String, DumpSeries> nodes = new java.util.LinkedHashMap<>();
+        List<String> specs = new ArrayList<>();
+        if (clusterSpecs != null) specs.addAll(clusterSpecs);
+        if (clusterManifest != null) {
+            for (String line : Files.readAllLines(clusterManifest)) {
+                if (!line.isBlank() && !line.startsWith("#")) specs.add(line.trim());
+            }
+        }
+        DumpSetLoader loader = new DumpSetLoader();
+        for (String spec : specs) {
+            int eq = spec.indexOf('=');
+            if (eq <= 0) {
+                System.err.println("--cluster needs name=glob, got: " + spec);
+                return 2;
+            }
+            String name = spec.substring(0, eq);
+            List<Path> nodeFiles = expandGlob(spec.substring(eq + 1));
+            if (nodeFiles.isEmpty()) {
+                System.err.println("cluster node " + name + ": no files match " + spec.substring(eq + 1));
+                return 3;
+            }
+            nodes.put(name, loader.load(nodeFiles));
+        }
+        AnalysisEngine engine = new AnalysisEngine(opts,
+                idlePatternsFile != null ? IdlePatterns.withUserFile(idlePatternsFile) : null,
+                frameMeaningsFile != null ? FrameMeanings.withUserFile(frameMeaningsFile) : null,
+                Rule.merged(ruleFiles));
+        Map<String, Object> cluster = new com.tda.core.analysis.ClusterAnalyzer(engine).analyze(nodes);
+
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("tool", Map.of("name", "tda", "version", AnalysisEngine.VERSION));
+        result.put("generatedAt", java.time.Instant.now().toString());
+        result.put("cluster", cluster);
+
+        if (jsonOut != null) {
+            Files.writeString(jsonOut, Json.write(result), StandardCharsets.UTF_8);
+            System.out.println("JSON written to " + jsonOut);
+        }
+        if (htmlOut != null) {
+            Files.writeString(htmlOut, new HtmlReport().render(result,
+                    "Thread Dump Analysis — cluster"), StandardCharsets.UTF_8);
+            System.out.println("HTML report written to " + htmlOut);
+        }
+        System.out.printf("Cluster: %d node(s) analyzed%n", nodes.size());
+        for (Object o : (List<?>) cluster.get("outliers")) {
+            System.out.println("  OUTLIER: " + ((Map<?, ?>) o).get("explanation"));
+        }
+        if (((List<?>) cluster.get("outliers")).isEmpty()) {
+            System.out.println("  no outliers - the fleet behaves uniformly");
+        }
+        return 0;
+    }
+
+    private static List<Path> expandGlob(String glob) throws Exception {
+        Path p = Path.of(glob);
+        if (Files.isRegularFile(p)) return List.of(p);
+        Path dir = p.getParent() != null ? p.getParent() : Path.of(".");
+        String pattern = p.getFileName().toString();
+        var matcher = dir.getFileSystem().getPathMatcher("glob:" + pattern);
+        if (!Files.isDirectory(dir)) return List.of();
+        try (var stream = Files.list(dir)) {
+            return stream.filter(f -> matcher.matches(f.getFileName()))
+                    .sorted().collect(java.util.stream.Collectors.toList());
+        }
+    }
+
+    /** Records the analysis into local incident memory and attaches similar past incidents. */
+    @SuppressWarnings("unchecked")
+    private void recordHistory(Map<String, Object> result, Map<String, Object> baselineDoc) {
+        if (noHistory) return;
+        try (HistoryStore store = new HistoryStore(
+                historyDb != null ? historyDb : HistoryStore.defaultPath())) {
+            java.util.Set<String> hashes = new java.util.LinkedHashSet<>();
+            for (Map<String, Object> d : (List<Map<String, Object>>) (List<?>) result.get("dumps")) {
+                for (Map<String, Object> g : (List<Map<String, Object>>) (List<?>) d.get("topStacks")) {
+                    hashes.add(String.valueOf(g.get("hash")));
+                }
+            }
+            var similar = store.similar(hashes, HistoryStore.SIMILARITY_THRESHOLD);
+            if (!similar.isEmpty()) {
+                List<Object> rows = new ArrayList<>();
+                for (var s : similar) {
+                    rows.add(Map.of("id", s.id(), "label", s.label() == null ? "" : s.label(),
+                            "date", s.ts().toString(), "overlap", s.overlap(),
+                            "sharedStacks", s.sharedHashes()));
+                }
+                result.put("similarIncidents", rows);
+                System.out.printf("  %d similar past incident(s) found in history "
+                        + "(see the report's Similar past incidents section)%n", similar.size());
+            }
+            Map<String, Object> summary = new java.util.LinkedHashMap<>();
+            Map<String, Integer> sev = new java.util.LinkedHashMap<>();
+            List<String> titles = new ArrayList<>();
+            for (Map<String, Object> f : (List<Map<String, Object>>) (List<?>) result.get("findings")) {
+                sev.merge(String.valueOf(f.get("severity")), 1, Integer::sum);
+                if (titles.size() < 10) titles.add(f.get("severity") + ": " + f.get("title"));
+            }
+            summary.put("severities", sev);
+            summary.put("topFindings", titles);
+            summary.put("dumps", ((List<?>) result.get("dumps")).size());
+            store.record(label, hashes, summary, baselineDoc);
+        } catch (Exception e) {
+            System.err.println("history: " + e.getMessage() + " (analysis unaffected; use "
+                    + "--no-history to silence)");
+        }
     }
 
     /** Loads dumps, transparently converting a JFR recording into synthetic dumps. */

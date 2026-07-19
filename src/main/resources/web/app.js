@@ -499,6 +499,80 @@ const TDA = (() => {
     }
   }
 
+  // "Similar past incidents" from the local history db (Jaccard overlap of stack sets).
+  function similarIncidentsSection(root, data) {
+    const sims = data.similarIncidents || [];
+    if (!sims.length) return;
+    root.appendChild(el("h2", null, "Similar past incidents"));
+    root.appendChild(el("p", { class: "sub" },
+        "From the local history database - overlap is the Jaccard similarity of recurring-stack fingerprints."));
+    for (const s of sims) {
+      root.appendChild(el("div", { class: "card" },
+          `<b>${esc(s.label || "(unlabeled)")}</b> <span class="badge">#${s.id}</span> ` +
+          `<span class="sub">${esc(s.date)}</span> — ` +
+          `<b>${Math.round(s.overlap * 100)}%</b> stack overlap` +
+          `<div class="sub mono">shared fingerprints: ${s.sharedStacks.map(esc).join(", ")}</div>`));
+    }
+  }
+
+  // Cluster mode: cross-node comparison + outliers (no per-dump drilldown per node).
+  function clusterSection(root, data) {
+    const c = data.cluster;
+    root.appendChild(el("h2", null, "Cluster overview"));
+    const tiles = el("div", { class: "tiles" });
+    tiles.appendChild(el("div", { class: "tile" },
+        `<div class="v">${c.nodes.length}</div><div class="l">nodes</div>`));
+    tiles.appendChild(el("div", { class: "tile" },
+        `<div class="v ${c.outliers.length ? "leak" : ""}">${c.outliers.length}</div>` +
+        `<div class="l">outlier signals</div>`));
+    root.appendChild(tiles);
+
+    if (c.outliers.length) {
+      root.appendChild(el("h2", null, "Outliers"));
+      for (const o of c.outliers) {
+        root.appendChild(el("div", { class: "card finding WARNING" },
+            `<span class="sevtag WARNING">OUTLIER</span><b>${esc(o.node)}</b> ` +
+            `<span class="badge">${esc(o.kind)}</span><p>${esc(o.explanation)}</p>`));
+      }
+    } else {
+      root.appendChild(el("p", { class: "sub" }, "No outliers — the fleet behaves uniformly."));
+    }
+
+    root.appendChild(el("h2", null, "State distribution by node"));
+    const states = [...new Set(c.nodes.flatMap(n => Object.keys(n.statePercent)))]
+        .sort((a, b) => STATE_ORDER.indexOf(a) - STATE_ORDER.indexOf(b));
+    const head = states.map(s => `<th class="num">${stateChip(s)}</th>`).join("");
+    const rows = c.nodes.map(n =>
+        `<tr><td>${esc(n.node)}</td><td class="num">${n.dumps}</td><td class="num">${n.threads}</td>` +
+        states.map(s => `<td class="num">${n.statePercent[s] != null ? n.statePercent[s] + "%" : "—"}</td>`).join("") +
+        `<td class="sub">${esc(JSON.stringify(n.findings))}</td></tr>`).join("");
+    root.appendChild(el("div", { class: "card tablewrap" },
+        `<table><thead><tr><th>Node</th><th class="num">Dumps</th><th class="num">Threads</th>` +
+        head + `<th>Findings</th></tr></thead><tbody>${rows}</tbody></table>`));
+
+    root.appendChild(el("h2", null, "Pool utilization by node"));
+    const pools = [...new Set(c.nodes.flatMap(n => Object.keys(n.poolBusyPercent)))];
+    if (pools.length) {
+      const prow = c.nodes.map(n =>
+          `<tr><td>${esc(n.node)}</td>` + pools.map(p =>
+              `<td class="num">${n.poolBusyPercent[p] != null ? n.poolBusyPercent[p] + "%" : "—"}</td>`).join("") +
+          `</tr>`).join("");
+      root.appendChild(el("div", { class: "card tablewrap" },
+          `<table><thead><tr><th>Node</th>` +
+          pools.map(p => `<th class="num">${esc(trunc(p, 28))}</th>`).join("") +
+          `</tr></thead><tbody>${prow}</tbody></table>`));
+    }
+
+    root.appendChild(el("h2", null, "Top recurring stacks by node"));
+    for (const n of c.nodes) {
+      if (!n.topStacks.length) continue;
+      const cards = n.topStacks.map(g =>
+          `<div class="card"><b>${g.count} threads</b> <span class="badge">${esc(n.node)}</span>` +
+          stackDetails(g.frames, "shared stack") + `</div>`).join("");
+      root.appendChild(el("div", null, `<h3>${esc(n.node)}</h3>${cards}`));
+    }
+  }
+
   function seriesSection(root, data) {
     const s = data.series || {};
     const stuck = s.stuckThreads || [];
@@ -809,6 +883,11 @@ const TDA = (() => {
     charts = [];
     rebuilders = [];
     root.innerHTML = "";
+    if (data && data.cluster) {
+      meaningsCatalog = data.meaningsCatalog || [];
+      clusterSection(root, data);
+      return;
+    }
     if (!data || !data.dumps || !data.dumps.length) {
       root.appendChild(el("p", { class: "err" }, "No thread dumps found in the input."));
       return;
@@ -816,6 +895,7 @@ const TDA = (() => {
     meaningsCatalog = data.meaningsCatalog || [];
     metaSection(root, data);
     findingsSection(root, data);
+    similarIncidentsSection(root, data);
     chartsSection(root, data);
     seriesSection(root, data);
     dumpSection(root, data);
