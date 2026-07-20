@@ -33,8 +33,15 @@ public final class ClusterAnalyzer {
         this.engine = engine;
     }
 
-    @SuppressWarnings("unchecked")
     public Map<String, Object> analyze(Map<String, DumpSeries> nodes) {
+        return analyze(nodes, false);
+    }
+
+    /** @param includeReports embed each node's full analysis for report drill-down
+     *                        (opt-in: file size scales with node count) */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> analyze(Map<String, DumpSeries> nodes, boolean includeReports) {
+        Map<String, Object> nodeReports = new LinkedHashMap<>();
         List<Map<String, Object>> nodeRows = new ArrayList<>();
         Map<String, Map<String, Double>> statePctByNode = new LinkedHashMap<>();
         Map<String, Map<String, Integer>> stacksByNode = new LinkedHashMap<>();   // hash -> count
@@ -44,6 +51,7 @@ public final class ClusterAnalyzer {
         for (Map.Entry<String, DumpSeries> e : nodes.entrySet()) {
             String node = e.getKey();
             Map<String, Object> result = engine.analyze(e.getValue(), List.of());
+            if (includeReports) nodeReports.put(node, result);
             List<Map<String, Object>> dumps = (List<Map<String, Object>>) (List<?>) result.get("dumps");
 
             // average state distribution (percent) across the node's series
@@ -112,6 +120,7 @@ public final class ClusterAnalyzer {
         cluster.put("nodes", nodeRows);
         cluster.put("outliers", scoreOutliers(statePctByNode, stacksByNode, stackFramesByNode,
                 poolBusyByNode));
+        if (includeReports) cluster.put("nodeReports", nodeReports);
         return cluster;
     }
 

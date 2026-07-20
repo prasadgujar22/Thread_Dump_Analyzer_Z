@@ -46,6 +46,11 @@ public class AnalyzeCommand implements Callable<Integer> {
             description = "File with one name=glob line per node (alternative to repeating --cluster).")
     Path clusterManifest;
 
+    @Option(names = "--cluster-detail",
+            description = "Embed each node's full report in the cluster output for per-node "
+                    + "drill-down (file size scales with node count).")
+    boolean clusterDetail;
+
     @Option(names = "--label", paramLabel = "<build>",
             description = "Tag this analysis in the local history (release-drift tracking; see tda compare).")
     String label;
@@ -319,7 +324,8 @@ public class AnalyzeCommand implements Callable<Integer> {
                 idlePatternsFile != null ? IdlePatterns.withUserFile(idlePatternsFile) : null,
                 frameMeaningsFile != null ? FrameMeanings.withUserFile(frameMeaningsFile) : null,
                 Rule.merged(ruleFiles));
-        Map<String, Object> cluster = new com.tda.core.analysis.ClusterAnalyzer(engine).analyze(nodes);
+        Map<String, Object> cluster = new com.tda.core.analysis.ClusterAnalyzer(engine)
+                .analyze(nodes, clusterDetail);
 
         Map<String, Object> result = new java.util.LinkedHashMap<>();
         result.put("tool", Map.of("name", "tda", "version", AnalysisEngine.VERSION));
