@@ -508,6 +508,42 @@ const TDA = (() => {
     }
   }
 
+  // Detected app server (WebLogic / Tomcat / WebSphere / Liberty / WildFly) + per-dump
+  // worker-group health table built from the same math as the platform findings.
+  function middlewareSection(root, data) {
+    const mw = data.middleware;
+    if (!mw || mw.platform === "UNKNOWN") return;
+    const h = el("h2", null, "Server profile");
+    root.appendChild(h);
+    const card = el("div", { class: "card" });
+    card.appendChild(el("div", null,
+        `<span class="sevtag INFO">${esc(mw.platform)}</span><b>${esc(mw.display)}</b>` +
+        `<div class="sub">detected from: ${(mw.evidence || []).map(esc).join(" · ")}</div>`));
+    const groups = mw.groups || [];
+    if (groups.length) {
+      const dumps = data.dumps || [];
+      const head = dumps.map(d => `<th class="num">${esc(dumpLabel(d))}</th>`).join("");
+      const rows = groups.map(g => {
+        const cells = g.perDump.map(c => {
+          if (!c) return `<td class="sub num">—</td>`;
+          const extras = [];
+          if (c.blocked) extras.push(`${c.blocked} blocked`);
+          if (c.stuck) extras.push(`${c.stuck} [STUCK]`);
+          if (c.standby) extras.push(`${c.standby} standby`);
+          return `<td class="num ${c.saturated ? "leak" : ""}">` +
+              `${c.busy}/${c.total}${c.saturated ? " ⚠" : ""}` +
+              (extras.length ? `<div class="sub">${esc(extras.join(", "))}</div>` : "") + `</td>`;
+        }).join("");
+        return `<tr><td>${esc(trunc(g.group, 48))}</td>${cells}</tr>`;
+      }).join("");
+      card.appendChild(el("div", { class: "tablewrap" },
+          `<p class="sub">busy/total per dump (busy = not idle-classified); ⚠ marks a fully busy ` +
+          `group with no reserve.</p>` +
+          `<table><thead><tr><th>Worker group</th>${head}</tr></thead><tbody>${rows}</tbody></table>`));
+    }
+    root.appendChild(card);
+  }
+
   function findingsSection(root, data) {
     const h = el("h2", null, "Findings");
     const exp = el("button", { type: "button" }, "Export annotated report");
@@ -1115,6 +1151,7 @@ const TDA = (() => {
   function renderAnalysis(data, root) {
     meaningsCatalog = data.meaningsCatalog || [];
     metaSection(root, data);
+    middlewareSection(root, data);
     findingsSection(root, data);
     similarIncidentsSection(root, data);
     chartsSection(root, data);
