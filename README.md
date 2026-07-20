@@ -75,6 +75,15 @@ Notes:
   normal WebLogic/Tomcat case).
 * JDK 8 through 21 dump formats are all first-class; `cpu=`/`elapsed=` header fields
   (JDK 11+) are used when present.
+* **IBM J9 / OpenJ9 javacores** (traditional WebSphere on IBM JDK, IBM Semeru) are
+  first-class too: `javacore.*.txt` files are auto-detected and parsed - THREADS with
+  J9 states and per-thread CPU (`3XMCPUTIME`), the LOCKS monitor pool (owners, blocked
+  entrants, wait()-ers), `1LKDEADLOCK` reports, `3XMTHREADBLOCK` blocked/parked
+  annotations, and the `1TISIGINFO` dump reason (an OOM-triggered javacore becomes a
+  CRITICAL finding). Frames are normalized to HotSpot shape so fingerprints, idle
+  patterns, and rules match identically across JVM vendors; a series of javacores
+  (WAS writes three on hung-thread detection) flows through the same comparative
+  pipeline as jstack series.
 * Appending all dumps to one file (as above) is fine; passing five separate files is fine
   too. The series is ordered by each dump's own timestamp.
 * Every analyze runs a **dump-quality validator**: single-dump input, missing `-l` lock
@@ -98,6 +107,28 @@ Notes:
 
 ## Domain intelligence
 
+* **Middleware detection**: every analysis identifies the app server (WebLogic /
+  WebSphere traditional / Liberty / Tomcat / WildFly) from thread-name shapes, frame
+  packages, and the JVM banner - deterministic, weighted, with the evidence shown in a
+  "Server profile" section together with a per-dump busy/total health table of that
+  server's worker groups (WebLogic queues, Tomcat connectors, WAS/Liberty pools).
+  Detection gates the platform analyzers below so WebLogic heuristics never fire on a
+  Tomcat dump.
+* **Platform health analyzers** (findings with evidence + remediation, like everything
+  else):
+  - *WebLogic*: self-tuning **thread starvation** (every execute thread busy, zero
+    STANDBY reserve - fires before WLS's own 600 s [STUCK] verdict), **socket muxer
+    BLOCKED** (front end stops reading requests), plus rule-pack detectors for JTA
+    commit stalls, t3/RMI peer hangs, and LDAP authentication stalls.
+  - *Tomcat*: **connector exhaustion** (all `-exec-` workers busy = maxThreads wall;
+    acceptCount queueing explained), **Poller/Acceptor BLOCKED** (no new I/O reaches the
+    exec pool), **ContainerBackgroundProcessor BLOCKED** (session expiry and reload
+    silently stop), session-replication lock convoys, JSP-compilation storms.
+  - *WebSphere*: **WebContainer saturation** (the WSVR0605W incident, seen before WAS
+    says so), **Liberty default-executor blocked saturation** (growth can't help when
+    workers are BLOCKED), **OOM-triggered javacore** surfaced as CRITICAL, WAS J2C
+    connection-pool waits (`FreePool.createOrWaitForConnection`) in the pool-exhaustion
+    detector, SIB messaging-engine waits.
 * **Frame meanings** (`frame-meanings.yaml`, override with `--frame-meanings`): every
   thread gets a plain-English "what is this thread doing" line (Oracle JDBC, UCP/Hikari
   borrow, IBM MQ, Kafka poll, Redis, HttpClient/OkHttp, Hibernate, JAX-WS, file I/O,
@@ -286,11 +317,14 @@ recent analysis as JSON (mirrors the CLI's `--json` output).
 ```
 com.tda.core          parsing + analysis, zero web/CLI dependencies (usable as a library)
   ├── model           ThreadDump / ThreadInfo / StackFrame / LockRef / DumpSeries
-  ├── parse           DumpSplitter (streaming, log-embedded dumps), HotSpotParser, TopHParser
+  ├── parse           DumpSplitter (streaming, log-embedded dumps), HotSpotParser,
+  │                   JavacoreParser (IBM J9/OpenJ9), TopHParser
   ├── analysis
   │   ├── single      state distribution, lock graph, deadlocks, stack dedup, pools, CPU
   │   ├── series      thread matching, fingerprints, stuck detection, lock persistence,
   │   │               pool trends, baseline diff
+  │   ├── middleware  server detection (WebLogic/WAS/Liberty/Tomcat/WildFly) + the
+  │   │               platform health analyzers and the Server-profile panel
   │   └── pattern     the pattern library -> severity-ranked findings
   └── json            dependency-free JSON writer/parser
 com.tda.report        JSON + single-file HTML report (ECharts inlined from the jar)
@@ -309,8 +343,8 @@ Design notes:
 * New dump formats plug in beside `HotSpotParser`; new detectors implement
   `analysis.pattern.Pattern`.
 
-Backlog (not yet supported): IBM/OpenJ9 javacore, Android ART dumps, `hs_err_pid` crash
-files, core-dump extraction, AI-assisted chat over findings.
+Backlog (not yet supported): Android ART dumps, `hs_err_pid` crash files, core-dump
+extraction, AI-assisted chat over findings.
 
 Runtime dependencies grew by exactly one in iteration 3: embedded H2 for the local incident
 memory. Everything else is still picocli + the JDK.
@@ -324,5 +358,6 @@ mvn package     # runs tests, then shades target/tda.jar
 
 Test fixtures under `src/test/resources/fixtures/` are synthetic but format-faithful, in both
 JDK 8 and JDK 17 flavors: healthy dumps, a JVM-reported deadlock, HikariCP pool exhaustion,
-and a five-dump WebLogic incident series (stuck thread, log4j lock convoy, thread leak)
-embedded in a server log.
+a five-dump WebLogic incident series (stuck thread, log4j lock convoy, thread leak)
+embedded in a server log, and IBM javacores (a traditional-WAS blocked chain on IBM JDK 8,
+a Semeru/OpenJ9 `1LKDEADLOCK` deadlock).
