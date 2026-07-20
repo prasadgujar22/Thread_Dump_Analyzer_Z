@@ -1,10 +1,12 @@
 package com.tda.core;
 
+import com.tda.core.analysis.classify.FrameMeanings;
 import com.tda.core.analysis.classify.IdlePatterns;
 import com.tda.core.analysis.classify.ThreadClassifier;
 import com.tda.core.analysis.pattern.Finding;
 import com.tda.core.analysis.pattern.PatternContext;
 import com.tda.core.analysis.pattern.PatternLibrary;
+import com.tda.core.analysis.pattern.Rule;
 import com.tda.core.analysis.series.Baseline;
 import com.tda.core.analysis.series.StuckClassifier;
 import com.tda.core.analysis.series.PersistentLockHolders;
@@ -18,6 +20,7 @@ import com.tda.core.analysis.single.PoolGrouper;
 import com.tda.core.analysis.single.StackDeduplicator;
 import com.tda.core.analysis.single.StateDistribution;
 import com.tda.core.model.DumpSeries;
+import com.tda.core.parse.GcLogParser;
 import com.tda.core.model.LockRef;
 import com.tda.core.model.ParseIssue;
 import com.tda.core.model.StackFrame;
@@ -44,24 +47,43 @@ public final class AnalysisEngine {
 
     private final AnalysisOptions options;
     private final ThreadClassifier classifier;
+    private final FrameMeanings meanings;
+    private final List<Rule> rules;
 
     public AnalysisEngine(AnalysisOptions options) {
-        this(options, null);
+        this(options, null, null, null);
     }
 
-    /** @param idlePatterns idle-pattern knowledge base; null uses the bundled defaults. */
     public AnalysisEngine(AnalysisOptions options, IdlePatterns idlePatterns) {
+        this(options, idlePatterns, null, null);
+    }
+
+    /** null idlePatterns/meanings/rules fall back to the bundled defaults. */
+    public AnalysisEngine(AnalysisOptions options, IdlePatterns idlePatterns,
+                          FrameMeanings meanings, List<Rule> rules) {
         this.options = options;
         this.classifier = new ThreadClassifier(idlePatterns);
+        this.meanings = meanings != null ? meanings : FrameMeanings.loadDefault();
+        this.rules = rules != null ? rules : Rule.loadBundled();
     }
 
     public Map<String, Object> analyze(DumpSeries series, List<TopHSample> topH) {
-        return analyze(series, topH, null);
+        return analyze(series, topH, null, List.of());
     }
 
-    /** @param baselineDoc a saved healthy-series baseline to diff against, or null. */
     public Map<String, Object> analyze(DumpSeries series, List<TopHSample> topH,
                                        Map<String, Object> baselineDoc) {
+        return analyze(series, topH, baselineDoc, List.of());
+    }
+
+    /**
+     * @param baselineDoc a saved healthy-series baseline to diff against, or null
+     * @param gcPauses    stop-the-world windows parsed from GC/safepoint logs; used for
+     *                    chart overlay bands and to reattribute frozen threads to pauses
+     */
+    public Map<String, Object> analyze(DumpSeries series, List<TopHSample> topH,
+                                       Map<String, Object> baselineDoc,
+                                       List<GcLogParser.PauseWindow> gcPauses) {
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("tool", Map.of("name", "tda", "version", VERSION));
         root.put("generatedAt", Instant.now().toString());
@@ -83,13 +105,47 @@ public final class AnalysisEngine {
         }
         root.put("dumps", dumps);
 
+        List<Object> quality = new ArrayList<>();
+        for (var note : new com.tda.core.analysis.DumpQualityValidator().validate(series)) {
+            quality.add(Map.of("level", note.level(), "message", note.message()));
+        }
+        root.put("qualityNotes", quality);
+
         SeriesResults sr = analyzeSeries(series, pools, graphs, topH, baselineDoc);
+
+        // Reattribution: a frozen-thread verdict whose dump instants all fall inside
+        // stop-the-world windows is the pause's fault, not the application's.
+        List<StuckClassifier.Verdict> verdicts = sr.verdicts;
+        if (!gcPauses.isEmpty()) {
+            verdicts = reattributeToPauses(verdicts, series, gcPauses, sr.json);
+        }
         root.put("series", sr.json);
 
+        if (!gcPauses.isEmpty()) {
+            List<Object> pauseRows = new ArrayList<>();
+            for (GcLogParser.PauseWindow w : gcPauses) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("start", w.start().toString());
+                row.put("durationMs", w.durationMs());
+                row.put("cause", w.cause());
+                row.put("kind", w.kind());
+                pauseRows.add(row);
+            }
+            root.put("gcPauses", pauseRows);
+        }
+
         PatternContext ctx = new PatternContext(series, graphs, deadlocksPerDump,
-                sr.verdicts, sr.holders, sr.trends, options);
+                verdicts, sr.holders, sr.trends, gcPauses, poolUtilization(series, pools), options);
         List<Object> findings = new ArrayList<>();
-        for (Finding f : new PatternLibrary().run(ctx)) findings.add(f.toJson());
+        for (Finding f : new PatternLibrary(rules).run(ctx)) findings.add(f.toJson());
+
+        // compact meanings catalog so the report can annotate call-stack tree nodes
+        List<Object> catalog = new ArrayList<>();
+        for (FrameMeanings.Meaning m : meanings.entries()) {
+            catalog.add(Map.of("category", m.category(), "activity", m.activity(),
+                    "frames", m.frames()));
+        }
+        root.put("meaningsCatalog", catalog);
         root.put("findings", findings);
         return root;
     }
@@ -98,6 +154,47 @@ public final class AnalysisEngine {
                                  List<StuckClassifier.Verdict> verdicts,
                                  List<PersistentLockHolders.Holder> holders,
                                  List<PoolTrend.Trend> trends) {}
+
+    /** Discards frozen/native-wait verdicts whose whole run coincides with pause windows. */
+    @SuppressWarnings("unchecked")
+    private List<StuckClassifier.Verdict> reattributeToPauses(
+            List<StuckClassifier.Verdict> verdicts, DumpSeries series,
+            List<GcLogParser.PauseWindow> pauses, Map<String, Object> seriesJson) {
+        List<StuckClassifier.Verdict> out = new ArrayList<>();
+        List<String> reattributed = new ArrayList<>();
+        for (StuckClassifier.Verdict v : verdicts) {
+            boolean pauseArtifact = v.genuine() || v.kind() == StuckClassifier.Kind.NATIVE_WAIT;
+            if (pauseArtifact) {
+                for (int i = v.stuck().fromDump(); i <= v.stuck().toDump() && pauseArtifact; i++) {
+                    var ts = series.get(i).timestamp();
+                    pauseArtifact = ts != null
+                            && pauses.stream().anyMatch(w -> w.covers(ts, 2000));
+                }
+            }
+            if (pauseArtifact) {
+                reattributed.add(v.stuck().name());
+                out.add(new StuckClassifier.Verdict(v.stuck(), StuckClassifier.Kind.DISCARDED,
+                        null, "high", "every dump in this thread's frozen run was taken inside a "
+                        + "GC/safepoint pause window - the whole JVM was stopped, so an unchanged "
+                        + "stack is expected; attributed to the pause, not the application",
+                        v.victims()));
+            } else {
+                out.add(v);
+            }
+        }
+        if (!reattributed.isEmpty()) {
+            // also drop them from the stuck table + swimlane flags already built
+            List<Map<String, Object>> stuckRows =
+                    (List<Map<String, Object>>) (List<?>) seriesJson.get("stuckThreads");
+            stuckRows.removeIf(r -> reattributed.contains(String.valueOf(r.get("name"))));
+            List<Map<String, Object>> timelines =
+                    (List<Map<String, Object>>) (List<?>) seriesJson.get("timelines");
+            timelines.removeIf(r -> reattributed.contains(String.valueOf(r.get("name")))
+                    && List.of("stuck").equals(r.get("flags")));
+            seriesJson.put("reattributedToGc", reattributed);
+        }
+        return out;
+    }
 
     /** Distills this series into a baseline document for later {@code --baseline} diffs. */
     public Map<String, Object> buildBaseline(DumpSeries series) {
@@ -261,6 +358,35 @@ public final class AnalysisEngine {
         }
         m.put("gcThreads", gc);
         m.put("jitThreads", jit);
+
+        // virtual threads (JDK 21+ JSON dumps) + carrier mapping
+        int virtualCount = 0;
+        Map<String, List<String>> byCarrier = new LinkedHashMap<>();
+        for (ThreadInfo t : d.threads()) {
+            if (!t.isVirtual()) continue;
+            virtualCount++;
+            if (t.carrierTid() != null) {
+                byCarrier.computeIfAbsent(t.carrierTid(), k -> new ArrayList<>()).add(t.name());
+            }
+        }
+        if (virtualCount > 0) {
+            m.put("virtualThreads", virtualCount);
+            m.put("platformThreads", dist.total() - virtualCount);
+            if (!byCarrier.isEmpty()) {
+                List<Object> carriers = new ArrayList<>();
+                for (Map.Entry<String, List<String>> e : byCarrier.entrySet()) {
+                    String carrierName = d.threads().stream()
+                            .filter(t -> !t.isVirtual() && t.javaId() != null
+                                    && String.valueOf(t.javaId()).equals(e.getKey()))
+                            .map(ThreadInfo::name).findFirst().orElse("tid " + e.getKey());
+                    carriers.add(Map.of("carrier", carrierName,
+                            "carrierTid", e.getKey(),
+                            "count", e.getValue().size(),
+                            "virtualThreads", cap(e.getValue(), 10)));
+                }
+                m.put("carriers", carriers);
+            }
+        }
         if (gc >= 24 || jit >= 8) {
             m.put("gcJitNote", "unusually many GC/JIT threads (" + gc + " GC, " + jit
                     + " JIT) - check -XX:ParallelGCThreads/-XX:CICompilerCount vs the "
@@ -279,9 +405,25 @@ public final class AnalysisEngine {
             p.states().forEach((k, v) -> st.put(k.name(), v));
             row.put("states", st);
             row.put("stuck", p.stuckCount());
+            // work-manager utilization: busy = not idle-classified (Rule 1 knowledge base)
+            int busy = 0;
+            for (String name : p.threadNames()) {
+                ThreadInfo t = d.findByName(name);
+                if (t != null && classifier.classify(t).kind() == ThreadClassifier.Kind.APPLICATION) busy++;
+            }
+            row.put("busy", busy);
+            row.put("idle", p.count() - busy);
             poolRows.add(row);
         }
         m.put("pools", poolRows);
+
+        // "where is the time going": thread counts per activity category
+        Map<String, Integer> categories = new LinkedHashMap<>();
+        for (ThreadInfo t : d.javaThreads()) {
+            FrameMeanings.Meaning me = meanings.meaningFor(t);
+            if (me != null) categories.merge(me.category(), 1, Integer::sum);
+        }
+        m.put("categories", categories);
 
         List<Object> stackGroups = new ArrayList<>();
         for (StackDeduplicator.Group g : new StackDeduplicator()
@@ -386,6 +528,15 @@ public final class AnalysisEngine {
             if (pool != null) row.put("pool", pool);
             ThreadClassifier.Classification cls = classifier.classify(t);
             if (cls.label() != null) row.put("class", cls.label());
+            FrameMeanings.Meaning meaning = meanings.meaningFor(t);
+            if (meaning != null) {
+                row.put("activity", meaning.activity());
+                row.put("category", meaning.category());
+            }
+            if (t.isVirtual()) {
+                row.put("virtual", true);
+                if (t.carrierTid() != null) row.put("carrier", t.carrierTid());
+            }
             if (!t.frames().isEmpty()) {
                 String key = Long.toHexString(t.stackHash());
                 stackTable.computeIfAbsent(key, k -> frameList(t));
@@ -416,6 +567,34 @@ public final class AnalysisEngine {
 
     private static List<String> cap(List<String> in, int max) {
         return in.size() <= max ? in : in.subList(0, max);
+    }
+
+    /** Observed busy/idle utilization per pool across the series (Rule-1 classification). */
+    private List<PatternContext.PoolUtil> poolUtilization(DumpSeries series, PoolGrouper pools) {
+        Map<String, int[]> agg = new LinkedHashMap<>(); // pool -> [busySum, totalSum, maxSize, blocked]
+        for (ThreadDump d : series.dumps()) {
+            for (PoolGrouper.PoolStats p : pools.analyze(d)) {
+                int[] a = agg.computeIfAbsent(p.pool(), k -> new int[4]);
+                int busy = 0;
+                for (String name : p.threadNames()) {
+                    ThreadInfo t = d.findByName(name);
+                    if (t != null && classifier.classify(t).kind() == ThreadClassifier.Kind.APPLICATION) {
+                        busy++;
+                    }
+                }
+                a[0] += busy;
+                a[1] += p.count();
+                a[2] = Math.max(a[2], p.count());
+                a[3] += p.states().getOrDefault(com.tda.core.model.ThreadState.BLOCKED, 0);
+            }
+        }
+        List<PatternContext.PoolUtil> out = new ArrayList<>();
+        for (Map.Entry<String, int[]> e : agg.entrySet()) {
+            int[] a = e.getValue();
+            if (a[1] == 0) continue;
+            out.add(new PatternContext.PoolUtil(e.getKey(), 100.0 * a[0] / a[1], a[2], a[3]));
+        }
+        return out;
     }
 
     private static List<Object> topCounts(Map<String, Integer> counts, int n) {

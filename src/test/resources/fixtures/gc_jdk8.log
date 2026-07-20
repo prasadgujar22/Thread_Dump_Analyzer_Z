@@ -1,0 +1,4 @@
+2026-07-16T16:10:01.234+0000: 120.456: [GC (Allocation Failure) [PSYoungGen: 512000K->12800K(614400K)] 812000K->324800K(2014208K), 0.0231456 secs] [Times: user=0.08 sys=0.01, real=0.02 secs]
+2026-07-16T16:10:15.900+0000: 135.122: [Full GC (Metadata GC Threshold) [PSYoungGen: 12800K->0K(614400K)] [ParOldGen: 312000K->298000K(1399808K)] 324800K->298000K(2014208K), [Metaspace: 98000K->98000K(1140736K)], 4.5123456 secs] [Times: user=12.02 sys=0.31, real=4.51 secs]
+2026-07-16T16:10:20.500+0000: 139.722: Total time for which application threads were stopped: 0.1234567 seconds, Stopping threads took: 0.0004567 seconds
+some interleaved application log line

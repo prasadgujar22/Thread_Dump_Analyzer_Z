@@ -23,6 +23,12 @@ public final class DumpSetLoader {
     public DumpSeries load(List<Path> files) throws IOException {
         DumpSeries series = new DumpSeries();
         for (Path p : files) {
+            String head = peek(p);
+            if (JsonDumpParser.looksLikeJsonDump(head)) {
+                series.add(new JsonDumpParser().parse(
+                        Files.readString(p, StandardCharsets.UTF_8), p.getFileName().toString()));
+                continue;
+            }
             try (BufferedReader r = open(p)) {
                 for (ThreadDump d : splitter.split(p.getFileName().toString(), r)) series.add(d);
             }
@@ -31,11 +37,21 @@ public final class DumpSetLoader {
         return series;
     }
 
+    private String peek(Path p) throws IOException {
+        try (InputStream in = Files.newInputStream(p)) {
+            return new String(in.readNBytes(512), StandardCharsets.UTF_8);
+        }
+    }
+
     /** Parses dumps out of in-memory content (web uploads, tests). */
     public DumpSeries loadFromStrings(List<String> names, List<String> contents) throws IOException {
         DumpSeries series = new DumpSeries();
         for (int i = 0; i < contents.size(); i++) {
             String name = i < names.size() ? names.get(i) : ("input-" + (i + 1));
+            if (JsonDumpParser.looksLikeJsonDump(contents.get(i))) {
+                series.add(new JsonDumpParser().parse(contents.get(i), name));
+                continue;
+            }
             try (BufferedReader r = new BufferedReader(new StringReader(contents.get(i)))) {
                 for (ThreadDump d : splitter.split(name, r)) series.add(d);
             }

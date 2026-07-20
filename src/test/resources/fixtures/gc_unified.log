@@ -1,0 +1,7 @@
+[2026-07-16T16:00:05.100+0000][info][gc,start] GC(11) Pause Young (Normal) (G1 Evacuation Pause)
+[2026-07-16T16:00:05.112+0000][info][gc] GC(11) Pause Young (Normal) (G1 Evacuation Pause) 512M->128M(1024M) 12.345ms
+[2026-07-16T16:00:11.000+0000][info][gc,heap] GC(12) Eden regions: 40->0(38)
+[2026-07-16T16:00:19.500+0000][info][gc] GC(13) Pause Full (System.gc()) 900M->340M(1024M) 6250.000ms
+[2026-07-16T16:00:41.200+0000][info][safepoint] Safepoint "G1CollectForAllocation", Time since last: 21688000000 ns, Reaching safepoint: 214000 ns, At safepoint: 1512000000 ns, Total: 1512214000 ns
+[2026-07-16T16:00:55.000+0000][info][gc] GC(14) Pause Young (Normal) (G1 Evacuation Pause) 300M->120M(1024M) 9.812ms
+garbage line the parser must ignore

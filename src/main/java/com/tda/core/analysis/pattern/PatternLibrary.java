@@ -9,6 +9,7 @@ import com.tda.core.analysis.single.PoolGrouper;
 import com.tda.core.model.ThreadDump;
 import com.tda.core.model.ThreadInfo;
 import com.tda.core.model.ThreadState;
+import com.tda.core.parse.GcLogParser;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,21 +22,32 @@ import static com.tda.core.analysis.pattern.Finding.Severity.CRITICAL;
 import static com.tda.core.analysis.pattern.Finding.Severity.INFO;
 import static com.tda.core.analysis.pattern.Finding.Severity.WARNING;
 
-/** The built-in pattern library; runs every detector and returns findings ranked by severity. */
+/**
+ * The built-in pattern library; runs every detector and returns findings ranked by severity.
+ * Frame-scan detectors live in the bundled rules.yaml and run through {@link RuleEngine} -
+ * the same machinery user site packs use; graph-/cpu-theoretic detectors stay native.
+ */
 public final class PatternLibrary {
 
-    private final List<Pattern> patterns = List.of(
-            new DeadlockPattern(),
-            new WebLogicStuckPattern(),
-            new StuckThreadPattern(),
-            new ConnectionPoolExhaustionPattern(),
-            new SyncLoggingPattern(),
-            new NetworkHangPattern(),
-            new ClassloaderContentionPattern(),
-            new FinalizerBacklogPattern(),
-            new TopBlockerPattern(),
-            new ThreadLeakPattern(),
-            new ExceptionProcessingPattern());
+    private final List<Pattern> patterns;
+
+    public PatternLibrary() {
+        this(Rule.loadBundled());
+    }
+
+    public PatternLibrary(List<Rule> rules) {
+        patterns = List.of(
+                new DeadlockPattern(),
+                new WebLogicStuckPattern(),
+                new StuckThreadPattern(),
+                new RuleEngine(rules),
+                new NetworkHangPattern(),
+                new FinalizerBacklogPattern(),
+                new TopBlockerPattern(),
+                new ThreadLeakPattern(),
+                new GcPausePattern(),
+                new PoolSizingPattern());
+    }
 
     public List<Finding> run(PatternContext ctx) {
         List<Finding> out = new ArrayList<>();
@@ -184,92 +196,7 @@ final class StuckThreadPattern implements Pattern {
     }
 }
 
-/** Many threads waiting inside a connection-pool borrow call = the pool is exhausted. */
-final class ConnectionPoolExhaustionPattern implements Pattern {
-    private static final String[] BORROW_FRAMES = {
-            "com.zaxxer.hikari.util.ConcurrentBag.borrow",
-            "com.zaxxer.hikari.pool.HikariPool.getConnection",
-            "oracle.ucp.jdbc.PoolDataSourceImpl.getConnection",
-            "oracle.ucp.common.UniversalConnectionPoolBase.borrowConnection",
-            "weblogic.jdbc.common.internal.ConnectionPool.reserve",
-            "weblogic.common.resourcepool.ResourcePoolImpl.reserveResource",
-            "org.apache.commons.dbcp2.PoolingDataSource.getConnection",
-            "org.apache.commons.pool2.impl.GenericObjectPool.borrowObject",
-            "org.apache.tomcat.jdbc.pool.ConnectionPool.borrowConnection",
-            "com.mchange.v2.resourcepool.BasicResourcePool.awaitAvailable",
-    };
-    private static final Set<ThreadState> WAITING_STATES =
-            Set.of(ThreadState.WAITING, ThreadState.TIMED_WAITING, ThreadState.BLOCKED);
 
-    @Override public List<Finding> detect(PatternContext ctx) {
-        int worst = 0, worstDump = -1;
-        List<Frames.Match> worstMatches = List.of();
-        for (int i = 0; i < ctx.series().size(); i++) {
-            List<Frames.Match> m = Frames.scan(ctx.series().get(i), WAITING_STATES, BORROW_FRAMES);
-            if (m.size() > worst) { worst = m.size(); worstDump = i; worstMatches = m; }
-        }
-        if (worst < 3) return List.of();
-        return List.of(new Finding("connection-pool-exhaustion", worst >= 10 ? CRITICAL : WARNING,
-                worst + " threads waiting for a database connection",
-                "In dump " + worstDump + ", " + worst + " threads sit inside a connection-pool borrow call "
-                        + "(HikariCP / UCP / WebLogic JDBC / DBCP). The pool has no free connections: either "
-                        + "it is undersized for the load, connections are leaking, or every connection is "
-                        + "tied up in slow queries.",
-                "Check what the threads that DO hold connections are executing (often stuck in socketRead0 "
-                        + "on a slow query - see the network-hang finding if present). Review pool max size "
-                        + "vs. concurrent workers, enable leak detection (e.g. HikariCP leakDetectionThreshold, "
-                        + "UCP InactiveConnectionTimeout, WebLogic Inactive Connection Timeout + Profile "
-                        + "Connection Leak), and set statement/query timeouts so one slow query cannot pin a "
-                        + "connection forever.")
-                .evidence("dump", worstDump)
-                .evidence("waitingThreads", worst)
-                .evidence("threads", Frames.names(worstMatches, 15))
-                .evidence("frame", worstMatches.isEmpty() ? "" : worstMatches.get(0).matchedFrame())
-                .evidence("confidence", "high")
-                .evidence("whyNotFalsePositive", "these threads sit inside the pool's borrow/await "
-                        + "call itself, not in an idle executor queue - they asked for a connection "
-                        + "and are still waiting"));
-    }
-}
-
-/** Many threads BLOCKED on a logging framework's synchronized appender. */
-final class SyncLoggingPattern implements Pattern {
-    private static final String[] LOG_FRAMES = {
-            "org.apache.log4j.Category.callAppenders",
-            "org.apache.log4j.AppenderSkeleton.doAppend",
-            "org.apache.logging.log4j.core.appender.OutputStreamManager",
-            "ch.qos.logback.core.OutputStreamAppender",
-            "ch.qos.logback.core.AppenderBase.doAppend",
-            "java.util.logging.Logger.log",
-            "java.util.logging.StreamHandler.publish",
-    };
-
-    @Override public List<Finding> detect(PatternContext ctx) {
-        int worst = 0, worstDump = -1;
-        List<Frames.Match> worstMatches = List.of();
-        for (int i = 0; i < ctx.series().size(); i++) {
-            List<Frames.Match> m = Frames.scan(ctx.series().get(i), Set.of(ThreadState.BLOCKED), LOG_FRAMES);
-            if (m.size() > worst) { worst = m.size(); worstDump = i; worstMatches = m; }
-        }
-        if (worst < 3) return List.of();
-        return List.of(new Finding("sync-logging-bottleneck", worst >= 10 ? CRITICAL : WARNING,
-                worst + " threads BLOCKED on synchronized logging",
-                "In dump " + worstDump + ", " + worst + " threads are BLOCKED inside the logging framework "
-                        + "(Logger/Category/Appender). Synchronous appenders serialize every log call through "
-                        + "one lock; under load or with slow I/O (console, NFS, disk pressure) the whole "
-                        + "worker pool queues behind the thread currently writing.",
-                "Switch to async logging: Log4j2 AsyncAppender/AsyncLogger (LMAX disruptor), Logback "
-                        + "AsyncAppender, or reduce log volume at INFO level on hot paths. Never log to "
-                        + "console in production WebLogic/Tomcat - stdout is often the slowest sink.")
-                .evidence("dump", worstDump)
-                .evidence("blockedThreads", worst)
-                .evidence("threads", Frames.names(worstMatches, 15))
-                .evidence("frame", worstMatches.isEmpty() ? "" : worstMatches.get(0).matchedFrame())
-                .evidence("confidence", "high")
-                .evidence("whyNotFalsePositive", "BLOCKED (not WAITING) on the appender lock means "
-                        + "real monitor contention on the logging write path"));
-    }
-}
 
 /** RUNNABLE threads pinned in blocking socket reads - the JVM cannot see a network timeout that isn't set. */
 final class NetworkHangPattern implements Pattern {
@@ -353,34 +280,6 @@ final class NetworkHangPattern implements Pattern {
     }
 }
 
-/** Many threads BLOCKED in ClassLoader.loadClass. */
-final class ClassloaderContentionPattern implements Pattern {
-    @Override public List<Finding> detect(PatternContext ctx) {
-        int worst = 0, worstDump = -1;
-        List<Frames.Match> worstMatches = List.of();
-        for (int i = 0; i < ctx.series().size(); i++) {
-            List<Frames.Match> m = Frames.scan(ctx.series().get(i), Set.of(ThreadState.BLOCKED),
-                    "java.lang.ClassLoader.loadClass", ".loadClass");
-            if (m.size() > worst) { worst = m.size(); worstDump = i; worstMatches = m; }
-        }
-        if (worst < 3) return List.of();
-        return List.of(new Finding("classloader-contention", WARNING,
-                worst + " threads BLOCKED in class loading",
-                "In dump " + worstDump + ", " + worst + " threads contend on classloader locks in "
-                        + "loadClass. Typical causes: first requests after deployment/restart loading classes "
-                        + "lazily under full traffic, non-parallel-capable custom classloaders, or code that "
-                        + "calls Class.forName per request.",
-                "Warm the application before admitting traffic (startup class-loading, a warm-up request "
-                        + "set). Make custom classloaders parallel-capable (registerAsParallelCapable). Cache "
-                        + "Class.forName / reflection lookups instead of resolving per request.")
-                .evidence("dump", worstDump)
-                .evidence("blockedThreads", worst)
-                .evidence("threads", Frames.names(worstMatches, 15))
-                .evidence("confidence", "medium")
-                .evidence("whyNotFalsePositive", "multiple threads BLOCKED inside loadClass at the "
-                        + "same moment is classloader lock contention, not routine lazy loading"));
-    }
-}
 
 /** Finalizer thread not idle-waiting = a finalization backlog is forming (GC-adjacent indicator). */
 final class FinalizerBacklogPattern implements Pattern {
@@ -470,45 +369,69 @@ final class TopBlockerPattern implements Pattern {
     }
 }
 
-/** Threads caught mid-exception: stack construction and printing are expensive at volume. */
-final class ExceptionProcessingPattern implements Pattern {
-    private static final String[] EXCEPTION_FRAMES = {
-            "java.lang.Throwable.fillInStackTrace",
-            "java.lang.Throwable.printStackTrace",
-            "java.lang.Throwable.getStackTrace",
-            "java.lang.StackTraceElement.of",
-            "java.lang.Throwable.getOurStackTrace",
-            "java.lang.ExceptionInInitializerError",
-    };
+/** Long or frequent stop-the-world windows from a supplied GC/safepoint log. */
+final class GcPausePattern implements Pattern {
+    static final double LONG_PAUSE_WARN_MS = 1000;
+    static final double LONG_PAUSE_CRITICAL_MS = 5000;
 
     @Override public List<Finding> detect(PatternContext ctx) {
-        int worst = 0, worstDump = -1;
-        List<Frames.Match> worstMatches = List.of();
-        for (int i = 0; i < ctx.series().size(); i++) {
-            List<Frames.Match> m = Frames.scan(ctx.series().get(i),
-                    Set.of(ThreadState.RUNNABLE, ThreadState.BLOCKED), EXCEPTION_FRAMES);
-            if (m.size() > worst) { worst = m.size(); worstDump = i; worstMatches = m; }
+        var pauses = ctx.gcPauses();
+        if (pauses.isEmpty()) return List.of();
+        List<Finding> out = new ArrayList<>();
+
+        var longest = pauses.stream()
+                .filter(p -> p.durationMs() >= LONG_PAUSE_WARN_MS)
+                .sorted((a, b) -> Double.compare(b.durationMs(), a.durationMs()))
+                .limit(5).toList();
+        if (!longest.isEmpty()) {
+            var worst = longest.get(0);
+            out.add(new Finding("long-gc-pause",
+                    worst.durationMs() >= LONG_PAUSE_CRITICAL_MS ? CRITICAL : WARNING,
+                    String.format("Long stop-the-world pause: %.0f ms (%s)",
+                            worst.durationMs(), worst.cause()),
+                    longest.size() + " pause(s) exceeded " + (long) LONG_PAUSE_WARN_MS + " ms during "
+                            + "the capture window. Every application thread stands still for the "
+                            + "entire pause - requests stall, timeouts fire, and frozen-looking "
+                            + "threads in the dumps may simply be paused.",
+                    "Tune for the collector in use (heap sizing, region sizes, "
+                            + "-XX:MaxGCPauseMillis for G1) or move to a low-pause collector "
+                            + "(G1 -> ZGC/Shenandoah). If the cause is a safepoint other than GC, "
+                            + "find the requesting VM operation.")
+                    .evidence("pauses", longest.stream().map(p -> Map.of(
+                            "start", p.start().toString(),
+                            "durationMs", p.durationMs(),
+                            "cause", p.cause(), "kind", p.kind())).toList())
+                    .evidence("confidence", "high")
+                    .evidence("whyNotFalsePositive",
+                            "pause durations are the JVM's own measurements from its GC log"));
         }
-        if (worst == 0) return List.of();
-        return List.of(new Finding("exception-processing", worst >= 5 ? WARNING : INFO,
-                worst + " thread(s) actively constructing/printing exceptions",
-                "In dump " + worstDump + ", " + worst + " thread(s) were caught inside "
-                        + "fillInStackTrace/printStackTrace. One snapshot catching this is rare - "
-                        + "seeing it usually means exceptions are being thrown at very high volume "
-                        + "(exceptions-as-control-flow, retry storms, log-and-rethrow loops).",
-                "Find the exception source in the frames below and fix the root cause or stop "
-                        + "using exceptions on the hot path. As mitigation, JVMs deduplicate via "
-                        + "-XX:+OmitStackTraceInFastThrow - if your logs show stackless exceptions, "
-                        + "the storm has been running a while.")
-                .evidence("dump", worstDump)
-                .evidence("threads", Frames.names(worstMatches, 15))
-                .evidence("frame", worstMatches.isEmpty() ? "" : worstMatches.get(0).matchedFrame())
-                .evidence("confidence", worst >= 5 ? "high" : "low")
-                .evidence("whyNotFalsePositive", "fillInStackTrace frames are only on-stack during "
-                        + "actual exception construction - catching " + worst + " simultaneously "
-                        + "implies a sustained throw rate"));
+
+        var first = pauses.get(0).start();
+        var last = pauses.get(pauses.size() - 1).end();
+        double windowMs = Math.max(1, java.time.Duration.between(first, last).toMillis());
+        double stoppedMs = pauses.stream().mapToDouble(GcLogParser.PauseWindow::durationMs).sum();
+        double pct = 100.0 * stoppedMs / windowMs;
+        if (pct >= 10.0 && pauses.size() >= 5) {
+            out.add(new Finding("frequent-safepoints", WARNING,
+                    String.format("Application stopped %.1f%% of the time (%d pauses)",
+                            pct, pauses.size()),
+                    String.format("Across the logged window the JVM spent %.0f ms of %.0f ms "
+                            + "inside stop-the-world pauses. Throughput and latency both suffer "
+                            + "before any single pause looks alarming.", stoppedMs, windowMs),
+                    "Check allocation rate (frequent young GCs), humongous allocations on G1, "
+                            + "explicit System.gc() calls, and non-GC safepoint causes "
+                            + "(-Xlog:safepoint shows the requesting operation).")
+                    .evidence("stoppedMs", Math.round(stoppedMs))
+                    .evidence("windowMs", Math.round(windowMs))
+                    .evidence("pauseCount", pauses.size())
+                    .evidence("confidence", "high")
+                    .evidence("whyNotFalsePositive",
+                            "aggregated from the JVM's own pause accounting, not sampled"));
+        }
+        return out;
     }
 }
+
 
 /** Monotonic per-pool growth across the series - a thread leak in the making. */
 final class ThreadLeakPattern implements Pattern {
@@ -533,6 +456,50 @@ final class ThreadLeakPattern implements Pattern {
                     .evidence("confidence", "medium")
                     .evidence("whyNotFalsePositive", "strictly monotonic growth across every dump in "
                             + "the series - normal pools shrink or plateau between snapshots"));
+        }
+        return out;
+    }
+}
+
+/** INFO-only pool right-sizing hints from observed busy/idle utilization across the series. */
+final class PoolSizingPattern implements Pattern {
+    @Override public List<Finding> detect(PatternContext ctx) {
+        List<Finding> out = new ArrayList<>();
+        for (PatternContext.PoolUtil u : ctx.poolUtilization()) {
+            if (ctx.series().size() < 2) break; // utilization needs a series
+            if (u.avgBusyPct() >= 90 && u.blockedSeen() > 0) {
+                out.add(new Finding("pool-sizing", INFO,
+                        "Pool \"" + u.pool() + "\" ran " + Math.round(u.avgBusyPct())
+                                + "% busy with blocked work - consider increasing",
+                        "Across the series this pool averaged " + Math.round(u.avgBusyPct())
+                                + "% busy at an observed size of " + u.maxSize() + ", while "
+                                + u.blockedSeen() + " thread(s) sat BLOCKED behind its work. A "
+                                + "hint, not a finding: verify against the pool's configured max.",
+                        "If the configured max equals the observed size, raise it (or fix the "
+                                + "downstream slowness that keeps workers busy).")
+                        .evidence("pool", u.pool())
+                        .evidence("avgBusyPct", Math.round(u.avgBusyPct()))
+                        .evidence("observedMax", u.maxSize())
+                        .evidence("confidence", "medium")
+                        .evidence("whyNotFalsePositive",
+                                "busy/idle is measured per dump from thread classification, "
+                                + "not inferred"));
+            } else if (u.avgBusyPct() <= 10 && u.maxSize() >= 20) {
+                out.add(new Finding("pool-sizing", INFO,
+                        "Pool \"" + u.pool() + "\" is " + Math.round(u.avgBusyPct())
+                                + "% busy at size " + u.maxSize() + " - likely oversized",
+                        "A hint, not a finding: " + u.maxSize() + " threads exist but on average "
+                                + "only " + Math.round(u.avgBusyPct()) + "% do work. Each idle "
+                                + "thread costs stack memory and scheduler load.",
+                        "Shrink the pool (or its minimum) unless it is sized for a known burst.")
+                        .evidence("pool", u.pool())
+                        .evidence("avgBusyPct", Math.round(u.avgBusyPct()))
+                        .evidence("observedMax", u.maxSize())
+                        .evidence("confidence", "medium")
+                        .evidence("whyNotFalsePositive",
+                                "busy/idle is measured per dump from thread classification, "
+                                + "not inferred"));
+            }
         }
         return out;
     }

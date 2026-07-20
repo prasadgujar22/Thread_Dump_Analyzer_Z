@@ -7,6 +7,7 @@ import com.tda.core.analysis.series.StuckClassifier;
 import com.tda.core.analysis.single.DeadlockDetector;
 import com.tda.core.analysis.single.LockGraph;
 import com.tda.core.model.DumpSeries;
+import com.tda.core.parse.GcLogParser;
 
 import java.util.List;
 
@@ -18,5 +19,10 @@ public record PatternContext(
         List<StuckClassifier.Verdict> stuckVerdicts,   // classified candidates (Rules 1-3)
         List<PersistentLockHolders.Holder> lockHolders,
         List<PoolTrend.Trend> poolTrends,
+        List<GcLogParser.PauseWindow> gcPauses,        // from --gc-log; empty when absent
+        List<PoolUtil> poolUtilization,                // busy/idle utilization per pool
         AnalysisOptions options) {
+
+    /** Observed utilization of one pool across the series (busy = not idle-classified). */
+    public record PoolUtil(String pool, double avgBusyPct, int maxSize, int blockedSeen) {}
 }

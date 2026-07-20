@@ -1,0 +1,49 @@
+2026-07-18 09:00:00
+Full thread dump OpenJDK 64-Bit Server VM (17.0.11+9-LTS mixed mode, sharing):
+
+"RMI TCP Connection(2)-10.20.30.40" #31 daemon prio=5 os_prio=0 cpu=5.00ms elapsed=100.00s tid=0x00007f0000031000 nid=0x131 runnable  [0x00007f0000131000]
+   java.lang.Thread.State: RUNNABLE
+	at java.net.SocketInputStream.socketRead0(java.base@17.0.11/Native Method)
+	at sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(TCPTransport.java:706)
+
+   Locked ownable synchronizers:
+	- None
+
+"sync-worker@app01.prod.acme.com" #32 prio=5 os_prio=0 cpu=9.00ms elapsed=100.00s tid=0x00007f0000032000 nid=0x132 runnable  [0x00007f0000132000]
+   java.lang.Thread.State: RUNNABLE
+	at com.acme.orders.LedgerService.append(LedgerService.java:74)
+	at com.acme.sync.ReplicaPusher.pushTo(ReplicaPusher.java:41)
+	at com.acme.sync.ReplicaPusher.run(ReplicaPusher.java:20)
+
+   Locked ownable synchronizers:
+	- None
+
+"mailer-ops@acme.com-dispatcher" #33 prio=5 os_prio=0 cpu=2.00ms elapsed=100.00s tid=0x00007f0000033000 nid=0x133 waiting on condition  [0x00007f0000133000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(java.base@17.0.11/Native Method)
+	at com.acme.mail.Dispatcher.pollForHost(Dispatcher.java:55)
+	at com.acme.mail.Dispatcher.run(Dispatcher.java:31)
+
+   Locked ownable synchronizers:
+	- None
+
+"replica-app01.prod.acme.com-monitor" #34 prio=5 os_prio=0 cpu=1.00ms elapsed=100.00s tid=0x00007f0000034000 nid=0x134 waiting on condition  [0x00007f0000134000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(java.base@17.0.11/Native Method)
+	at com.acme.sync.ReplicaMonitor.checkPeer(ReplicaMonitor.java:88)
+	at com.acme.sync.ReplicaMonitor.run(ReplicaMonitor.java:12)
+
+   Locked ownable synchronizers:
+	- None
+
+"peer-192.168.7.21-heartbeat" #35 prio=5 os_prio=0 cpu=1.50ms elapsed=100.00s tid=0x00007f0000035000 nid=0x135 waiting on condition  [0x00007f0000135000]
+   java.lang.Thread.State: TIMED_WAITING (sleeping)
+	at java.lang.Thread.sleep(java.base@17.0.11/Native Method)
+	at com.acme.cluster.Heartbeat.ping(Heartbeat.java:19)
+
+   Locked ownable synchronizers:
+	- None
+
+"VM Thread" os_prio=0 cpu=10.00ms elapsed=100.00s tid=0x00007f0000004000 nid=0x104 runnable
+
+JNI global refs: 20, weak refs: 0

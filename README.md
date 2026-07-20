@@ -6,8 +6,10 @@ compares dumps against each other, detects long-running/stuck threads, and produ
 severity-ranked findings with concrete remediation steps — as an interactive local web UI,
 a self-contained HTML report, and JSON for automation.
 
-**Everything runs locally.** One jar, no installer, no database, no telemetry, no CDN, no
-network calls of any kind. Dumps contain production data; they never leave the machine.
+**Everything runs locally.** One jar, no installer, no external database, no telemetry, no
+CDN. Dumps contain production data; they never leave the machine. The single exception is
+the explicitly opt-in `--webhook` flag (see Ops integration) — without it, zero network
+calls, ever.
 
 ## Quick start
 
@@ -26,7 +28,32 @@ Requires Java 17+ to run (builds against release 17; tested on 21).
 ## Capturing thread dumps
 
 The comparative analysis is the interesting part — always capture a **series**, not a single
-snapshot. Five dumps at 10-second intervals is the sweet spot:
+snapshot. The built-in capture subsystem does this in one command:
+
+```bash
+java -jar tda.jar capture --pid <pid>                    # 5 dumps, 10 s apart, + manifest.json
+java -jar tda.jar capture --pid <pid> --with-top --analyze   # + top -H per capture, report in one shot
+```
+
+The capture strategy is an ordered fallback chain (cross-version attach is unreliable):
+the **target JVM's own jcmd** resolved via `/proc/<pid>/exe` (a JDK 8 WebLogic is dumped by
+JDK 8's jcmd — no attach-protocol mismatch), our runtime's jcmd, the Attach API, and finally
+SIGQUIT — with `--stdout-log <path>` TDA tails the target's stdout log and splits the dumps
+out of it. Output files are analysis-ready (leading timestamp line) plus a `manifest.json`
+(host, pid, JVM version, capture times, strategy used). Linux-first; `--with-top` degrades
+gracefully elsewhere.
+
+**Trigger-based auto-capture** (Linux only — reads /proc):
+
+```bash
+java -jar tda.jar watch --pid <pid> --cpu-threshold 80 --thread-count-threshold 900 \
+     --poll 5s --cooldown 10m --exec-after ./notify.sh
+```
+
+Breaches fire a full capture series (logged with the breaching metric), then honor the
+cooldown; `--exec-after` receives the output directory as its argument.
+
+Manual capture still works, of course:
 
 ```bash
 PID=$(jcmd -l | grep MyServer | cut -d' ' -f1)
@@ -50,6 +77,104 @@ Notes:
   (JDK 11+) are used when present.
 * Appending all dumps to one file (as above) is fine; passing five separate files is fine
   too. The series is ordered by each dump's own timestamp.
+* Every analyze runs a **dump-quality validator**: single-dump input, missing `-l` lock
+  detail, parse skips, >60 s gaps, out-of-order files, mixed JVMs, and clock skew
+  (`elapsed=` vs timestamps) surface as INFO/WARNING notes at the top of the report.
+
+## Correlating with other JVM signals
+
+* **GC/safepoint overlay** — `--gc-log <file>` (unified logging or JDK 8
+  `PrintGCDetails`): pause windows render as shaded bands on the series charts; a frozen
+  thread whose whole run coincides with pause windows is **reattributed to the pause**, not
+  the application; long pauses (>1 s WARNING, >5 s CRITICAL) and frequent safepoints (>10%
+  stopped time) become findings with the cause.
+* **JFR** — `tda analyze recording.jfr` streams `jdk.ExecutionSample` events into
+  time-sliced synthetic dumps (default 1 s, `--jfr-slice`) fed to the same engine: same
+  findings and charts with hundreds of data points. `jdk.ThreadPark`/`jdk.JavaMonitorEnter`
+  aggregate into a lock-contention section; `jdk.VirtualThreadPinned` becomes a finding.
+* **JDK 21+ JSON dumps** — `jcmd <pid> Thread.dump_to_file -format=json` is the only format
+  with virtual threads: platform/virtual tiles, carrier→virtual mapping table, parked vs
+  runnable in the state charts.
+
+## Domain intelligence
+
+* **Frame meanings** (`frame-meanings.yaml`, override with `--frame-meanings`): every
+  thread gets a plain-English "what is this thread doing" line (Oracle JDBC, UCP/Hikari
+  borrow, IBM MQ, Kafka poll, Redis, HttpClient/OkHttp, Hibernate, JAX-WS, file I/O,
+  crypto, logging) shown in the thread tables, tree annotations, and a per-dump
+  "Where is the time going" category breakdown.
+* **Work managers**: pools aggregate per WebLogic queue / WebSphere pool / Tomcat exec
+  group with busy/idle utilization columns.
+* **Pool right-sizing hints** (INFO only, never findings): ≥90% busy with blocked work →
+  consider increasing; ≤10% busy at size ≥20 → oversized.
+
+### Rules DSL (`--rules`, `tda rules validate|dry-run`)
+
+Bundled frame-scan detectors and user site packs are the same machinery — one schema:
+
+```yaml
+rules:
+  - id: mq-reply-wait-storm             # finding id (same id overrides a bundled rule)
+    title: "{count} threads waiting on MQ replies"
+    severity: warning                    # cap: info|warning|critical
+    criticalThreads: 10                  # optional: matches needed to actually go CRITICAL
+    recommendation: Check the MQ manager depth and receive timeouts.
+    match:
+      frames: [com.ibm.mq.jmqi, MQGET]   # any frame contains any needle
+      states: [RUNNABLE, WAITING]        # optional
+      minThreads: 3                      # per-dump floor
+```
+
+A second worked example — a spin detector corroborated by cpu deltas and persistence:
+
+```yaml
+rules:
+  - id: recon-spin
+    title: "{count} reconciler thread(s) burning CPU"
+    severity: warning
+    recommendation: Profile MatchEngine.scanBucket; suspect the bucket-scan loop.
+    match:
+      frames: [com.acme.recon.MatchEngine]
+      states: [RUNNABLE]
+      threadNameRegex: "order-.*"        # optional, full-name regex
+      persistDumps: 3                    # same thread across >= 3 consecutive dumps
+      cpuDelta: spinning                 # any|zero|spinning (needs cpu= fields or top -H)
+```
+
+`tda rules validate <file>` checks the schema; `tda rules dry-run <file> <dumps...>` shows
+what would fire without touching the report. Graph-based detectors (deadlock, top blocker,
+stuck classification, thread leaks) remain native code — same findings pipeline.
+
+## Fleet and history
+
+* **Cluster mode**: `tda analyze --cluster nodeA=nodeA/*.txt --cluster nodeB=...` (or
+  `--cluster-manifest file`) analyzes each node as its own series and adds a cross-node
+  section with deterministic, explainable outlier scoring — e.g.
+  `node node7 diverges: 34 threads BLOCKED on CacheManager (fleet median: 0)`.
+* **Incident memory**: each analysis is stored in an embedded H2 db at `~/.tda/history.db`
+  (`--history-db`, `--no-history`); similar past incidents (≥30% Jaccard overlap of
+  recurring-stack fingerprints) appear in the report with label/date/shared stacks. CLI:
+  `tda history list|search|show`. **The db contains stack frames — treat it with the same
+  sensitivity as the dumps themselves.**
+* **Release drift**: `tda analyze --label build-2026.07.1 <healthy dumps>` tags a build;
+  `tda compare --baseline-label build-2026.07.1 <incident dumps>` shows what changed since
+  that build (new recurring stacks, state shifts, pool deltas).
+
+## Ops integration
+
+* **Exit codes** for pipeline gates: `--fail-on critical|warning` → **1** when the
+  threshold is met; **0** clean; **2** usage error; **3** parse failure.
+* **Webhook** — the ONLY network call this tool can ever make, and only when the flag is
+  present: `--webhook <url> [--webhook-format json|slack]` posts the findings summary after
+  analysis. Everything else is fully offline, always.
+* **Redaction**: `--redact` scrubs hostnames, IPs, and email-like tokens from thread names,
+  frames, and lock strings using deterministic pseudonyms (`host-1`, `ip-2`) so
+  cross-references still line up; applies to the HTML report, JSON, and webhook payloads.
+  Java class names are never touched.
+* **Deep links & annotations**: every finding and thread has a stable anchor
+  (`#finding-stuck-thread-1`, `#thread-main`); notes can be added per finding/thread and
+  "Export annotated report" re-serializes the page with the notes baked in — the artifact
+  you attach to an RCA carries its annotations.
 
 ## What it detects
 
@@ -112,7 +237,25 @@ thread tiles, per-thread classification in the thread browser (idle / housekeepi
 ## CLI reference
 
 ```
+java -jar tda.jar capture --pid <pid> [--count 5] [--interval 10s] [--out dir]
+                          [--with-top] [--stdout-log file] [--analyze]
+java -jar tda.jar watch   --pid <pid> [--cpu-threshold N] [--thread-count-threshold N]
+                          [--poll 5s] [--cooldown 10m] [--exec-after cmd]      (Linux only)
+java -jar tda.jar rules   validate <file> | dry-run <file> <dumps...>
+java -jar tda.jar history list | search <text> | show <id>
+java -jar tda.jar compare --baseline-label <label> <dumps...>
+
 java -jar tda.jar analyze <files...> [options]
+  --gc-log <file>            GC/safepoint log overlay + pause reattribution, repeatable
+  --jfr-slice <dur>          JFR execution-sample slice (default 1s)
+  --rules <file>             site rule pack(s), repeatable
+  --frame-meanings <file>    site frame-meaning overrides
+  --cluster name=glob        cluster mode, repeatable (also --cluster-manifest)
+  --label <build>            tag this analysis in history (release drift)
+  --no-history / --history-db <path>
+  --fail-on critical|warning exit 1 when threshold met (0 clean, 2 usage, 3 parse failure)
+  --redact                   deterministic pseudonyms for hosts/IPs/emails
+  --webhook <url> [--webhook-format json|slack]   the only (opt-in) network call
   --json <file>              full analysis as JSON (automation-friendly)
   --html <file>              self-contained HTML report (charts inlined; attach to RCA)
   --top <file>               top -H output; joined on nid for per-thread CPU
@@ -163,6 +306,9 @@ Design notes:
 
 Backlog (not yet supported): IBM/OpenJ9 javacore, Android ART dumps, `hs_err_pid` crash
 files, core-dump extraction, AI-assisted chat over findings.
+
+Runtime dependencies grew by exactly one in iteration 3: embedded H2 for the local incident
+memory. Everything else is still picocli + the JDK.
 
 ## Development
 

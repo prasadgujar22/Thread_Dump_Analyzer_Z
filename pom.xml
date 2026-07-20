@@ -26,6 +26,12 @@
       <version>${picocli.version}</version>
     </dependency>
     <dependency>
+      <!-- incident-memory store (~/.tda/history.db); pure Java, keeps the shaded jar clean -->
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>2.2.224</version>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <version>${junit.version}</version>
@@ -54,6 +60,10 @@
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>com.tda.cli.Main</mainClass>
+                  <manifestEntries>
+                    <!-- lets the Attach capture strategy reach HotSpotVirtualMachine.remoteDataDump -->
+                    <Add-Opens>jdk.attach/sun.tools.attach</Add-Opens>
+                  </manifestEntries>
                 </transformer>
               </transformers>
               <filters>

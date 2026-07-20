@@ -10,6 +10,63 @@ const TDA = (() => {
     BLOCKED: "--st-blocked", NEW: "--st-new", TERMINATED: "--st-gray", UNKNOWN: "--st-gray"
   };
 
+  let meaningsCatalog = []; // frame-meanings for tree annotation (set per render)
+  function frameMeaning(frame) {
+    for (const m of meaningsCatalog) {
+      for (const needle of m.frames) {
+        if (frame.includes(needle)) return m;
+      }
+    }
+    return null;
+  }
+
+  function slug(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  }
+
+  // ---- annotations: notes per finding/thread anchor; localStorage in serve mode,
+  // ---- baked into the DOM by "Export annotated report" for the RCA artifact path.
+  function noteKey(anchor) { return "tda-note-" + anchor; }
+  let harvestedNotes = {}; // notes baked into an exported report, recovered before re-render
+  function loadNote(anchor) {
+    if (harvestedNotes[anchor]) return harvestedNotes[anchor];
+    try { return localStorage.getItem(noteKey(anchor)) || ""; } catch (e) { return ""; }
+  }
+  function attachAnnotation(container, anchor) {
+    const btn = el("button", { type: "button", class: "notebtn", title: "Add a note (kept in exports)" }, "✎ note");
+    btn.style.cssText = "font-size:11px;padding:1px 8px;margin-left:8px";
+    const ta = el("textarea", { class: "tda-note", "data-anchor": anchor,
+        placeholder: "RCA note… (included in Export annotated report)" });
+    ta.style.cssText = "display:none;margin-top:6px;min-height:48px";
+    const saved = ta.getAttribute("data-note") || loadNote(anchor);
+    if (saved) { ta.value = saved; ta.style.display = "block"; }
+    ta.addEventListener("input", () => {
+      try { localStorage.setItem(noteKey(anchor), ta.value); } catch (e) { /* file:// quota */ }
+      ta.setAttribute("data-note", ta.value); // survives DOM serialization
+    });
+    if (saved) ta.setAttribute("data-note", saved);
+    btn.addEventListener("click", () => {
+      ta.style.display = ta.style.display === "none" ? "block" : "none";
+      if (ta.style.display === "block") ta.focus();
+    });
+    container.appendChild(btn);
+    container.appendChild(ta);
+  }
+
+  // Re-serializes the current DOM (with data-note attributes) into a new standalone file.
+  function exportAnnotatedReport() {
+    document.querySelectorAll("textarea.tda-note").forEach(ta => {
+      ta.setAttribute("data-note", ta.value);
+      ta.textContent = ta.value; // textarea content only serializes via its text node
+    });
+    const html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    a.download = "tda-report-annotated.html";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   let charts = [];          // live ECharts instances (disposed on re-render)
   let rebuilders = [];      // functions to rebuild charts on theme change
 
@@ -64,11 +121,53 @@ const TDA = (() => {
 
   // ---------------------------------------------------------------- charts
 
-  function statesChart(container, dumps) {
+  // Fractional category-axis position for a wall-clock instant, interpolated between dumps.
+  function timeToAxisPos(dumps, tMillis) {
+    const times = dumps.map(d => d.timestamp ? Date.parse(d.timestamp) : null);
+    if (times.some(x => x == null)) return null;
+    if (tMillis <= times[0]) return tMillis < times[0] - 60000 ? null : -0.4;
+    for (let i = 1; i < times.length; i++) {
+      if (tMillis <= times[i]) {
+        return (i - 1) + (tMillis - times[i - 1]) / Math.max(1, times[i] - times[i - 1]);
+      }
+    }
+    return tMillis > times[times.length - 1] + 60000 ? null : times.length - 1 + 0.4;
+  }
+
+  // GC/safepoint pause windows as shaded bands (markArea) over a category-axis chart.
+  function pauseBands(dumps, gcPauses) {
+    if (!gcPauses || !gcPauses.length) return null;
+    const data = [];
+    for (const p of gcPauses) {
+      const s = Date.parse(p.start);
+      const a = timeToAxisPos(dumps, s);
+      const b = timeToAxisPos(dumps, s + Math.max(p.durationMs, 500)); // min visible width
+      if (a == null || b == null) continue;
+      data.push([{ xAxis: a, name: `${p.cause} (${Math.round(p.durationMs)}ms)` },
+                 { xAxis: Math.max(b, a + 0.03) }]);
+      if (data.length >= 80) break;
+    }
+    if (!data.length) return null;
+    return {
+      silent: true,
+      itemStyle: { color: cssVar("--critical"), opacity: 0.14 },
+      label: { show: false },
+      data
+    };
+  }
+
+  function statesChart(container, dumps, gcPauses) {
     makeChart(container, 300, () => {
       const t = chartTheme();
       const cats = dumps.map(dumpLabel);
       const present = STATE_ORDER.filter(s => dumps.some(d => (d.states || {})[s]));
+      const bands = pauseBands(dumps, gcPauses);
+      const series = present.map(s => ({
+        name: s, type: "bar", stack: "states", data: dumps.map(d => (d.states || {})[s] || 0),
+        barMaxWidth: 46,
+        itemStyle: { color: stateColor(s), borderColor: cssVar("--surface"), borderWidth: 1 }
+      }));
+      if (bands && series.length) series[0].markArea = bands;
       return {
         tooltip: Object.assign(baseTooltip(), { trigger: "axis", axisPointer: { type: "shadow" } }),
         legend: { top: 0, textStyle: { color: t.textStyle.color, fontSize: 12 } },
@@ -76,16 +175,12 @@ const TDA = (() => {
         xAxis: { type: "category", data: cats, axisLine: t.axisLine,
                  axisLabel: { color: t.textStyle.color } },
         yAxis: { type: "value", splitLine: t.splitLine, axisLabel: { color: t.textStyle.color } },
-        series: present.map(s => ({
-          name: s, type: "bar", stack: "states", data: dumps.map(d => (d.states || {})[s] || 0),
-          barMaxWidth: 46,
-          itemStyle: { color: stateColor(s), borderColor: cssVar("--surface"), borderWidth: 1 }
-        }))
+        series
       };
     });
   }
 
-  function poolTrendChart(container, trends, dumps) {
+  function poolTrendChart(container, trends, dumps, gcPauses) {
     if (!trends.length) return;
     makeChart(container, 300, () => {
       const t = chartTheme();
@@ -105,6 +200,8 @@ const TDA = (() => {
           lineStyle: { width: 2, type: "dashed", color: cssVar("--muted") },
           itemStyle: { color: cssVar("--muted") } });
       }
+      const bands = pauseBands(dumps, gcPauses);
+      if (bands && series.length) series[0].markArea = bands;
       return {
         tooltip: Object.assign(baseTooltip(), { trigger: "axis" }),
         legend: { top: 0, type: "scroll", textStyle: { color: t.textStyle.color, fontSize: 11.5 } },
@@ -304,6 +401,9 @@ const TDA = (() => {
     tile(dumps.length, "dump" + (dumps.length > 1 ? "s" : ""));
     tile(last.totalThreads, "threads (last dump)");
     tile(`${last.daemonThreads} / ${last.totalThreads - last.daemonThreads}`, "daemon / non-daemon");
+    if (last.virtualThreads !== undefined) {
+      tile(`${last.platformThreads} / ${last.virtualThreads}`, "platform / virtual");
+    }
     if (last.gcThreads !== undefined) {
       tile(`${last.gcThreads} · ${last.jitThreads}`, "GC · JIT threads");
     }
@@ -315,8 +415,15 @@ const TDA = (() => {
     if (gcNote) root.appendChild(el("p", { class: "sub" }, "⚠ " + esc(gcNote)));
     root.appendChild(el("p", { class: "sub" },
         `${esc(range)} · ${esc(last.banner || "")} · generated ${esc(data.generatedAt)}`));
+    const quality = data.qualityNotes || [];
+    if (quality.length) {
+      root.appendChild(el("div", { class: "card" },
+          `<b>Dump quality</b> <span class="badge">${quality.length}</span><div class="sub">` +
+          quality.map(n => `<span class="sevtag ${n.level === "WARNING" ? "WARNING" : "INFO"}">` +
+              `${esc(n.level)}</span>${esc(n.message)}`).join("<br>") + `</div>`));
+    }
     const issues = dumps.flatMap(d => d.issues.map(i => `dump ${d.index}: ${i}`));
-    if (issues.length) {
+    if (issues.length && !quality.length) {
       root.appendChild(el("div", { class: "card" },
           `<b>Parse notes</b> <span class="badge">${issues.length}</span>` +
           `<div class="sub">${issues.map(esc).join("<br>")}</div>`));
@@ -324,13 +431,21 @@ const TDA = (() => {
   }
 
   function findingsSection(root, data) {
-    root.appendChild(el("h2", null, "Findings"));
+    const h = el("h2", null, "Findings");
+    const exp = el("button", { type: "button" }, "Export annotated report");
+    exp.style.cssText = "float:right;font-size:12px";
+    exp.addEventListener("click", exportAnnotatedReport);
+    h.appendChild(exp);
+    root.appendChild(h);
     const fs = data.findings || [];
     if (!fs.length) {
       root.appendChild(el("p", { class: "sub" }, "No patterns matched. No deadlocks, stuck threads, or known bottlenecks detected."));
       return;
     }
+    const anchorCounts = {};
     for (const f of fs) {
+      anchorCounts[f.id] = (anchorCounts[f.id] || 0) + 1;
+      const anchor = `finding-${slug(f.id)}-${anchorCounts[f.id]}`;
       const ev = f.evidence || {};
       let evHtml = "";
       for (const [k, v] of Object.entries(ev)) {
@@ -338,24 +453,31 @@ const TDA = (() => {
         const val = Array.isArray(v) ? v.map(x => esc(String(x))).join(", ") : esc(String(v));
         evHtml += `<div class="sub"><b>${esc(k)}:</b> ${val}</div>`;
       }
-      root.appendChild(el("div", { class: "card finding " + f.severity },
+      const card = el("div", { class: "card finding " + f.severity, id: anchor },
           `<div><span class="sevtag ${f.severity}">${f.severity}</span><b>${esc(f.title)}</b>` +
-          ` <span class="badge">${esc(f.id)}</span></div>` +
+          ` <span class="badge">${esc(f.id)}</span> <a class="sub" href="#${anchor}">#</a></div>` +
           `<p>${esc(f.detail)}</p>${evHtml}` +
-          `<div class="rec">${esc(f.recommendation)}</div>`));
+          `<div class="rec">${esc(f.recommendation)}</div>`);
+      attachAnnotation(card, anchor);
+      root.appendChild(card);
     }
   }
 
   function chartsSection(root, data) {
     const dumps = data.dumps;
     root.appendChild(el("h2", null, "Thread states across the series"));
-    statesChart(root.appendChild(el("div", { class: "card" })), dumps);
+    if ((data.gcPauses || []).length) {
+      root.appendChild(el("p", { class: "sub" },
+          `Shaded bands mark the ${data.gcPauses.length} GC/safepoint pause window(s) from the supplied GC log.`));
+    }
+    statesChart(root.appendChild(el("div", { class: "card" })), dumps, data.gcPauses);
 
     const trends = (data.series && data.series.poolTrends) || [];
     if (trends.length) {
       root.appendChild(el("h2", null, "Thread-pool sizes across the series"));
-      poolTrendChart(root.appendChild(el("div", { class: "card" })), trends, dumps);
+      poolTrendChart(root.appendChild(el("div", { class: "card" })), trends, dumps, data.gcPauses);
     }
+    jfrSections(root, data);
     const timelines = (data.series && data.series.timelines) || [];
     if (timelines.length && dumps.length > 1) {
       root.appendChild(el("h2", null, "Flagged threads — state per dump"));
@@ -407,6 +529,105 @@ const TDA = (() => {
     q.addEventListener("input", renderTable);
     st.addEventListener("change", renderTable);
     renderTable();
+  }
+
+  // JFR-only sections: lock-contention aggregate and virtual-thread pinning events.
+  function jfrSections(root, data) {
+    const cont = data.jfrContention || [];
+    if (cont.length) {
+      root.appendChild(el("h2", null, "Lock contention (JFR events)"));
+      const rows = cont.map(c =>
+          `<tr><td><span class="badge">${esc(c.kind)}</span></td><td class="mono">${esc(c["class"])}</td>` +
+          `<td class="num">${c.count}</td><td class="num">${c.totalMs}ms</td>` +
+          `<td class="num">${c.maxMs}ms</td></tr>`).join("");
+      root.appendChild(el("div", { class: "card tablewrap" },
+          `<table><thead><tr><th>Event</th><th>Class</th><th class="num">Count</th>` +
+          `<th class="num">Total wait</th><th class="num">Max wait</th></tr></thead>` +
+          `<tbody>${rows}</tbody></table>`));
+    }
+    const pinned = data.jfrPinned || [];
+    if (pinned.length) {
+      root.appendChild(el("h2", null, "Virtual-thread pinning (JFR events)"));
+      const cards = pinned.slice(0, 10).map(p =>
+          `<div class="card"><b>${(p.durationMs || 0).toFixed(1)} ms pinned</b>` +
+          (p.thread ? ` <span class="sub">${esc(p.thread)}</span>` : "") +
+          (p.frames ? stackDetails(p.frames, "pinning stack") : "") + `</div>`).join("");
+      root.appendChild(el("div", null, cards));
+    }
+  }
+
+  // "Similar past incidents" from the local history db (Jaccard overlap of stack sets).
+  function similarIncidentsSection(root, data) {
+    const sims = data.similarIncidents || [];
+    if (!sims.length) return;
+    root.appendChild(el("h2", null, "Similar past incidents"));
+    root.appendChild(el("p", { class: "sub" },
+        "From the local history database - overlap is the Jaccard similarity of recurring-stack fingerprints."));
+    for (const s of sims) {
+      root.appendChild(el("div", { class: "card" },
+          `<b>${esc(s.label || "(unlabeled)")}</b> <span class="badge">#${s.id}</span> ` +
+          `<span class="sub">${esc(s.date)}</span> — ` +
+          `<b>${Math.round(s.overlap * 100)}%</b> stack overlap` +
+          `<div class="sub mono">shared fingerprints: ${s.sharedStacks.map(esc).join(", ")}</div>`));
+    }
+  }
+
+  // Cluster mode: cross-node comparison + outliers (no per-dump drilldown per node).
+  function clusterSection(root, data) {
+    const c = data.cluster;
+    root.appendChild(el("h2", null, "Cluster overview"));
+    const tiles = el("div", { class: "tiles" });
+    tiles.appendChild(el("div", { class: "tile" },
+        `<div class="v">${c.nodes.length}</div><div class="l">nodes</div>`));
+    tiles.appendChild(el("div", { class: "tile" },
+        `<div class="v ${c.outliers.length ? "leak" : ""}">${c.outliers.length}</div>` +
+        `<div class="l">outlier signals</div>`));
+    root.appendChild(tiles);
+
+    if (c.outliers.length) {
+      root.appendChild(el("h2", null, "Outliers"));
+      for (const o of c.outliers) {
+        root.appendChild(el("div", { class: "card finding WARNING" },
+            `<span class="sevtag WARNING">OUTLIER</span><b>${esc(o.node)}</b> ` +
+            `<span class="badge">${esc(o.kind)}</span><p>${esc(o.explanation)}</p>`));
+      }
+    } else {
+      root.appendChild(el("p", { class: "sub" }, "No outliers — the fleet behaves uniformly."));
+    }
+
+    root.appendChild(el("h2", null, "State distribution by node"));
+    const states = [...new Set(c.nodes.flatMap(n => Object.keys(n.statePercent)))]
+        .sort((a, b) => STATE_ORDER.indexOf(a) - STATE_ORDER.indexOf(b));
+    const head = states.map(s => `<th class="num">${stateChip(s)}</th>`).join("");
+    const rows = c.nodes.map(n =>
+        `<tr><td>${esc(n.node)}</td><td class="num">${n.dumps}</td><td class="num">${n.threads}</td>` +
+        states.map(s => `<td class="num">${n.statePercent[s] != null ? n.statePercent[s] + "%" : "—"}</td>`).join("") +
+        `<td class="sub">${esc(JSON.stringify(n.findings))}</td></tr>`).join("");
+    root.appendChild(el("div", { class: "card tablewrap" },
+        `<table><thead><tr><th>Node</th><th class="num">Dumps</th><th class="num">Threads</th>` +
+        head + `<th>Findings</th></tr></thead><tbody>${rows}</tbody></table>`));
+
+    root.appendChild(el("h2", null, "Pool utilization by node"));
+    const pools = [...new Set(c.nodes.flatMap(n => Object.keys(n.poolBusyPercent)))];
+    if (pools.length) {
+      const prow = c.nodes.map(n =>
+          `<tr><td>${esc(n.node)}</td>` + pools.map(p =>
+              `<td class="num">${n.poolBusyPercent[p] != null ? n.poolBusyPercent[p] + "%" : "—"}</td>`).join("") +
+          `</tr>`).join("");
+      root.appendChild(el("div", { class: "card tablewrap" },
+          `<table><thead><tr><th>Node</th>` +
+          pools.map(p => `<th class="num">${esc(trunc(p, 28))}</th>`).join("") +
+          `</tr></thead><tbody>${prow}</tbody></table>`));
+    }
+
+    root.appendChild(el("h2", null, "Top recurring stacks by node"));
+    for (const n of c.nodes) {
+      if (!n.topStacks.length) continue;
+      const cards = n.topStacks.map(g =>
+          `<div class="card"><b>${g.count} threads</b> <span class="badge">${esc(n.node)}</span>` +
+          stackDetails(g.frames, "shared stack") + `</div>`).join("");
+      root.appendChild(el("div", null, `<h3>${esc(n.node)}</h3>${cards}`));
+    }
   }
 
   function seriesSection(root, data) {
@@ -504,6 +725,18 @@ const TDA = (() => {
     callStackTree(root, d);
     methodStats(root, d);
 
+    // carrier mapping (JDK 21+ JSON dumps with virtual threads)
+    if ((d.carriers || []).length) {
+      const rows = d.carriers.map(c =>
+          `<tr><td>${esc(c.carrier)}</td><td class="mono">${esc(c.carrierTid)}</td>` +
+          `<td class="num">${c.count}</td>` +
+          `<td class="sub">${c.virtualThreads.map(esc).join(", ")}${c.count > c.virtualThreads.length ? ", …" : ""}</td></tr>`).join("");
+      root.appendChild(el("div", { class: "card tablewrap" },
+          `<h3>Carrier threads → virtual threads</h3><table><thead><tr><th>Carrier</th>` +
+          `<th>tid</th><th class="num">Virtual threads</th><th>Names</th></tr></thead>` +
+          `<tbody>${rows}</tbody></table>`));
+    }
+
     // pools
     if ((d.pools || []).length) {
       const rows = d.pools.map(p => {
@@ -515,6 +748,16 @@ const TDA = (() => {
       root.appendChild(el("div", { class: "card tablewrap" },
           `<h3>Thread pools</h3><table><thead><tr><th>Pool</th><th class="num">Threads</th>` +
           `<th>States</th><th class="num">[STUCK]</th></tr></thead><tbody>${rows}</tbody></table>`));
+    }
+    // "where is the time going": activity-category breakdown
+    if (Object.keys(d.categories || {}).length) {
+      const rows = Object.entries(d.categories).sort((a, b) => b[1] - a[1]).map(([c, n]) =>
+          `<tr><td><span class="badge">${esc(c)}</span></td><td class="num">${n}</td></tr>`).join("");
+      root.appendChild(el("div", { class: "card tablewrap" },
+          `<h3>Where is the time going</h3><p class="sub">Thread counts by recognized activity ` +
+          `(frame-meanings knowledge base; unrecognized threads are not shown).</p>` +
+          `<table><thead><tr><th>Category</th><th class="num">Threads</th></tr></thead>` +
+          `<tbody>${rows}</tbody></table>`));
     }
     // top recurring stacks
     if ((d.topStacks || []).length) {
@@ -601,8 +844,10 @@ const TDA = (() => {
       const label2 = chain.length > 1
           ? `${esc(chain[0].split("(")[0])} <span class="sub">… ${chain.length - 1} more</span>`
           : esc(frame.split("(")[0]);
+      const meaning = frameMeaning(chain[chain.length - 1]);
       det.appendChild(el("summary", null,
-          `<span class="badge">${cur.count}</span> <span class="mono">${label2}</span>`));
+          `<span class="badge">${cur.count}</span> <span class="mono">${label2}</span>` +
+          (meaning ? ` <span class="badge" title="${esc(meaning.activity)}">${esc(meaning.category)}</span>` : "")));
       if (chain.length > 1) {
         det.appendChild(el("pre", { class: "frames" }, esc(chain.join("\n"))));
       }
@@ -669,9 +914,12 @@ const TDA = (() => {
         total++;
         if (shown >= 400) continue;
         shown++;
-        rows.push(`<tr><td>${esc(t.name)}${t.daemon ? ' <span class="badge">daemon</span>' : ""}</td>` +
+        const anchor = `thread-${slug(t.name)}`;
+        rows.push(`<tr id="${anchor}"><td>${esc(t.name)}${t.daemon ? ' <span class="badge">daemon</span>' : ""}` +
+            ` <a class="sub" href="#${anchor}">#</a></td>` +
             `<td>${stateChip(t.state)}</td>` +
-            `<td class="sub">${esc(t["class"] || "")}</td>` +
+            `<td class="sub">${esc(t["class"] || "")}${t.activity ? (t["class"] ? " · " : "") +
+                esc(t.activity) + ` <span class="badge">${esc(t.category)}</span>` : ""}</td>` +
             `<td class="sub">${esc(t.pool || "")}</td>` +
             `<td class="num">${t.prio != null ? t.prio : ""}</td>` +
             `<td class="mono">${esc(t.nid || "")}</td>` +
@@ -693,13 +941,25 @@ const TDA = (() => {
     charts.forEach(c => c.dispose());
     charts = [];
     rebuilders = [];
+    // an exported annotated report re-renders on open: recover its baked-in notes first
+    document.querySelectorAll("textarea.tda-note").forEach(ta => {
+      const v = ta.getAttribute("data-note") || ta.textContent;
+      if (v) harvestedNotes[ta.getAttribute("data-anchor")] = v;
+    });
     root.innerHTML = "";
+    if (data && data.cluster) {
+      meaningsCatalog = data.meaningsCatalog || [];
+      clusterSection(root, data);
+      return;
+    }
     if (!data || !data.dumps || !data.dumps.length) {
       root.appendChild(el("p", { class: "err" }, "No thread dumps found in the input."));
       return;
     }
+    meaningsCatalog = data.meaningsCatalog || [];
     metaSection(root, data);
     findingsSection(root, data);
+    similarIncidentsSection(root, data);
     chartsSection(root, data);
     seriesSection(root, data);
     dumpSection(root, data);

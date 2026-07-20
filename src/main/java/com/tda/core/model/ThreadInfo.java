@@ -18,6 +18,8 @@ public final class ThreadInfo {
     private ThreadState state = ThreadState.UNKNOWN;
     private String stateDetail = "";  // full state line, e.g. "WAITING (parking)"
     private String headerCondition = ""; // e.g. "waiting on condition", "runnable" (from the header)
+    private boolean virtual;          // JDK 21+ JSON dumps are the only format that shows these
+    private String carrierTid;        // carrier platform-thread tid, when the dump provides it
     private final List<StackFrame> frames = new ArrayList<>();
     private final List<LockRef> locks = new ArrayList<>();
     private final StringBuilder raw = new StringBuilder();
@@ -47,6 +49,10 @@ public final class ThreadInfo {
     public void setStateDetail(String v) { stateDetail = v; }
     public String headerCondition() { return headerCondition; }
     public void setHeaderCondition(String v) { headerCondition = v; }
+    public boolean isVirtual() { return virtual; }
+    public void setVirtual(boolean v) { virtual = v; }
+    public String carrierTid() { return carrierTid; }
+    public void setCarrierTid(String v) { carrierTid = v; }
     public List<StackFrame> frames() { return frames; }
     public List<LockRef> locks() { return locks; }
     public void appendRaw(String line) { raw.append(line).append('\n'); }
