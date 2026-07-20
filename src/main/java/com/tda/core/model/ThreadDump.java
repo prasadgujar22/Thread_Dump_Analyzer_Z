@@ -14,6 +14,7 @@ public final class ThreadDump {
     private final List<List<String>> jvmDeadlockCycles = new ArrayList<>(); // thread names per reported cycle
     private final List<ParseIssue> issues = new ArrayList<>();
     private boolean sawSynchronizerSection; // dump was taken with -l (quality signal)
+    private String dumpReason;              // javacore 1TISIGINFO event ("user", OOM, ...); null elsewhere
 
     public Instant timestamp() { return timestamp; }
     public void setTimestamp(Instant t) { timestamp = t; }
@@ -28,6 +29,8 @@ public final class ThreadDump {
     public List<ParseIssue> issues() { return issues; }
     public boolean sawSynchronizerSection() { return sawSynchronizerSection; }
     public void markSynchronizerSection() { sawSynchronizerSection = true; }
+    public String dumpReason() { return dumpReason; }
+    public void setDumpReason(String r) { dumpReason = r; }
 
     public ThreadInfo findByName(String name) {
         for (ThreadInfo t : threads) if (t.name().equals(name)) return t;

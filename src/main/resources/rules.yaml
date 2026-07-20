@@ -35,6 +35,8 @@ rules:
         - org.apache.commons.pool2.impl.GenericObjectPool.borrowObject
         - org.apache.tomcat.jdbc.pool.ConnectionPool.borrowConnection
         - com.mchange.v2.resourcepool.BasicResourcePool.awaitAvailable
+        - com.ibm.ws.j2c.poolmanager.FreePool.createOrWaitForConnection
+        - com.ibm.ejs.j2c.FreePool.createOrWaitForConnection
       states:
         - WAITING
         - TIMED_WAITING
@@ -68,6 +70,87 @@ rules:
       states:
         - BLOCKED
       minThreads: 3
+  - id: weblogic-jta-wait
+    title: "{count} threads inside WebLogic JTA transaction processing"
+    severity: warning
+    criticalThreads: 10
+    recommendation: Check the JTA timeout (JTAMBean TimeoutSeconds) and the health of every XA resource enlisted in these transactions (JDBC XA data sources, JMS). Long two-phase commits usually mean one participant is not answering; transaction log (tlog) I/O stalls show the same picture.
+    match:
+      frames:
+        - weblogic.transaction.internal.ServerTransactionImpl.commit
+        - weblogic.transaction.internal.ServerTransactionImpl.internalCommit
+        - weblogic.transaction.internal.TransactionImpl.globalPrepare
+        - weblogic.transaction.internal.TransactionImpl.globalCommit
+      states:
+        - WAITING
+        - TIMED_WAITING
+        - BLOCKED
+      minThreads: 3
+  - id: weblogic-t3-peer-hang
+    title: "{count} threads waiting on t3/RMI replies from another WebLogic server"
+    severity: warning
+    criticalThreads: 8
+    recommendation: Identify the peer server from the stacks and check its health - a hung peer propagates through the cluster via t3 waits. Set a reasonable RMI timeout (weblogic.rmi.clientTimeout / per-stub timeouts) so one dead peer cannot pin caller threads forever.
+    match:
+      frames:
+        - weblogic.rjvm.ResponseImpl.waitForData
+        - weblogic.rmi.internal.BasicOutboundRequest.sendReceive
+      minThreads: 2
+      persistDumps: 2
+  - id: weblogic-ldap-auth-stall
+    title: "{count} threads stalled in WebLogic security/LDAP authentication"
+    severity: warning
+    criticalThreads: 10
+    recommendation: Check the LDAP provider's connect/read timeouts in the authentication provider settings and the directory server's health. Authentication stalls serialize logins and can exhaust the execute queue during a login storm.
+    match:
+      frames:
+        - weblogic.security.providers.authentication
+        - netscape.ldap.LDAPConnection
+        - com.bea.common.security.internal.service
+      states:
+        - WAITING
+        - TIMED_WAITING
+        - RUNNABLE
+      minThreads: 3
+      persistDumps: 2
+  - id: tomcat-session-replication-blocked
+    title: "{count} threads BLOCKED in Tomcat session replication/clustering"
+    severity: warning
+    criticalThreads: 8
+    recommendation: Check Tribes cluster membership and network health between nodes (multicast/unicast). Consider BackupManager instead of DeltaManager for large clusters, and keep sessions small - replication serializes the whole session under a lock.
+    match:
+      frames:
+        - org.apache.catalina.tribes.
+        - org.apache.catalina.ha.session.
+      states:
+        - BLOCKED
+      minThreads: 3
+  - id: tomcat-jsp-compilation-storm
+    title: "{count} threads compiling JSPs on the request path"
+    severity: warning
+    recommendation: Precompile JSPs at build time (jspc) or warm the server before admitting traffic. In production set development=false on the JspServlet so Jasper stops checking for JSP changes per request.
+    match:
+      frames:
+        - org.apache.jasper.compiler.
+      states:
+        - RUNNABLE
+        - BLOCKED
+      minThreads: 3
+  - id: websphere-sib-wait
+    title: "{count} threads waiting inside the WebSphere default messaging engine (SIB)"
+    severity: warning
+    criticalThreads: 10
+    recommendation: Check the SIB messaging engine's state (started/stopped, message store health) and destination queue depths. Consumer threads pinned in SIB receive with a stopped engine look exactly like this.
+    match:
+      frames:
+        - com.ibm.ws.sib.
+        - com.ibm.websphere.sib.
+      states:
+        - WAITING
+        - TIMED_WAITING
+        - BLOCKED
+      minThreads: 5
+      persistDumps: 2
   - id: exception-processing
     title: "{count} thread(s) actively constructing/printing exceptions"
     severity: warning

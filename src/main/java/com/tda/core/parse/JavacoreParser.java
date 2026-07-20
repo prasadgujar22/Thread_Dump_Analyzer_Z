@@ -317,6 +317,7 @@ public final class JavacoreParser {
         }
         if (sawLocksSection) dump.markSynchronizerSection(); // LOCKS gives full ownership; no -l concept
         if (dumpReason != null) {
+            dump.setDumpReason(dumpReason);
             dump.issues().add(new ParseIssue(sourceName, "javacore dump event: " + dumpReason));
         }
         if (!sawThreadsSection && dump.threads().isEmpty()) {

@@ -84,7 +84,9 @@ public class RulesCommand implements Runnable {
             }
             PatternContext ctx = new PatternContext(series, graphs, dl,
                     List.<StuckClassifier.Verdict>of(), List.of(), List.of(), List.of(),
-                    List.of(), new AnalysisOptions());
+                    List.of(), com.tda.core.analysis.middleware.MiddlewareDetector.detect(series),
+                    new com.tda.core.analysis.classify.ThreadClassifier(null),
+                    new AnalysisOptions());
             RuleEngine engine = new RuleEngine(rules);
             int fired = 0;
             for (Rule r : rules) {

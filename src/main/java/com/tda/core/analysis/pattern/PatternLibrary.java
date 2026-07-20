@@ -46,7 +46,11 @@ public final class PatternLibrary {
                 new TopBlockerPattern(),
                 new ThreadLeakPattern(),
                 new GcPausePattern(),
-                new PoolSizingPattern());
+                new PoolSizingPattern(),
+                // platform-specific health checks, gated on MiddlewareDetector
+                new com.tda.core.analysis.middleware.WebLogicAnalyzer(),
+                new com.tda.core.analysis.middleware.TomcatAnalyzer(),
+                new com.tda.core.analysis.middleware.WebSphereAnalyzer());
     }
 
     public List<Finding> run(PatternContext ctx) {

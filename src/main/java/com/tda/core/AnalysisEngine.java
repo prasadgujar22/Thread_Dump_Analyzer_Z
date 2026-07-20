@@ -3,6 +3,8 @@ package com.tda.core;
 import com.tda.core.analysis.classify.FrameMeanings;
 import com.tda.core.analysis.classify.IdlePatterns;
 import com.tda.core.analysis.classify.ThreadClassifier;
+import com.tda.core.analysis.middleware.MiddlewareDetector;
+import com.tda.core.analysis.middleware.MiddlewarePanel;
 import com.tda.core.analysis.pattern.Finding;
 import com.tda.core.analysis.pattern.PatternContext;
 import com.tda.core.analysis.pattern.PatternLibrary;
@@ -134,8 +136,13 @@ public final class AnalysisEngine {
             root.put("gcPauses", pauseRows);
         }
 
+        // Which app server produced these dumps: badge + per-pool panel + analyzer gating.
+        MiddlewareDetector.Profile middleware = MiddlewareDetector.detect(series);
+        root.put("middleware", MiddlewarePanel.build(series, middleware, classifier));
+
         PatternContext ctx = new PatternContext(series, graphs, deadlocksPerDump,
-                verdicts, sr.holders, sr.trends, gcPauses, poolUtilization(series, pools), options);
+                verdicts, sr.holders, sr.trends, gcPauses, poolUtilization(series, pools),
+                middleware, classifier, options);
         List<Object> findings = new ArrayList<>();
         for (Finding f : new PatternLibrary(rules).run(ctx)) findings.add(f.toJson());
 

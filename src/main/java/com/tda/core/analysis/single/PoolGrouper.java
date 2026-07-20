@@ -41,13 +41,18 @@ public final class PoolGrouper {
         rules.add(new Rule(
                 Pattern.compile("^(?:\\[(?:STUCK|ACTIVE|STANDBY|HOGGING)] )?ExecuteThread:? '?\\d+'? for queue: '(.+)'.*"),
                 m -> "WebLogic queue '" + m.group(1) + "'"));
-        // WebSphere: WebContainer : 12
+        // WebSphere traditional: WebContainer : 12 plus the system pools
         rules.add(new Rule(Pattern.compile("^WebContainer : \\d+$"), m -> "WebSphere WebContainer"));
-        rules.add(new Rule(Pattern.compile("^(SIBJMSRAThreadPool|WMQJCAResourceAdapter|ORB\\.thread\\.pool)\\b.*"),
+        rules.add(new Rule(Pattern.compile("^(SIBJMSRAThreadPool|WMQJCAResourceAdapter|ORB\\.thread\\.pool|SoapConnectorThreadPool|TCPChannel\\.DCS)\\b.*"),
                 m -> "WebSphere " + m.group(1)));
+        rules.add(new Rule(Pattern.compile("^(server\\.startup|Deferrable Alarm|Non-deferrable Alarm) : \\d+$"),
+                m -> "WebSphere " + m.group(1)));
+        // WebSphere Liberty / Open Liberty self-tuning executor
+        rules.add(new Rule(Pattern.compile("^Default Executor-thread-\\d+$"), m -> "Liberty default executor"));
         // Tomcat / Spring Boot: http-nio-8080-exec-3, https-jsse-nio-8443-exec-1, ajp-nio-...-exec-N
         rules.add(new Rule(Pattern.compile("^((?:http|https|ajp)-[\\w.-]+)-exec-\\d+$"), m -> m.group(1)));
         rules.add(new Rule(Pattern.compile("^(catalina-exec)-\\d+$"), m -> m.group(1)));
+        rules.add(new Rule(Pattern.compile("^(Catalina-utility)-\\d+$"), m -> m.group(1)));
         // JBoss / WildFly / Undertow
         rules.add(new Rule(Pattern.compile("^default task-\\d+$"), m -> "WildFly 'default' workers"));
         rules.add(new Rule(Pattern.compile("^(EJB default) - \\d+$"), m -> "WildFly EJB default"));

@@ -1,6 +1,8 @@
 package com.tda.core.analysis.pattern;
 
 import com.tda.core.AnalysisOptions;
+import com.tda.core.analysis.classify.ThreadClassifier;
+import com.tda.core.analysis.middleware.MiddlewareDetector;
 import com.tda.core.analysis.series.PersistentLockHolders;
 import com.tda.core.analysis.series.PoolTrend;
 import com.tda.core.analysis.series.StuckClassifier;
@@ -21,6 +23,8 @@ public record PatternContext(
         List<PoolTrend.Trend> poolTrends,
         List<GcLogParser.PauseWindow> gcPauses,        // from --gc-log; empty when absent
         List<PoolUtil> poolUtilization,                // busy/idle utilization per pool
+        MiddlewareDetector.Profile middleware,         // which app server produced these dumps
+        ThreadClassifier classifier,                   // idle/housekeeping classification (Rules 1-2)
         AnalysisOptions options) {
 
     /** Observed utilization of one pool across the series (busy = not idle-classified). */
