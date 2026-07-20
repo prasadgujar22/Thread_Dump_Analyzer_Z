@@ -67,6 +67,29 @@ const TDA = (() => {
     URL.revokeObjectURL(a.href);
   }
 
+  // ---- drill-down plumbing: charts, findings, and tables navigate into the thread browser
+  const drill = { selectDump: null, filterThreads: null, browserEl: null };
+
+  function drillToThreads(opts) { // {dump, state, pool, stackHash, thread}
+    if (opts.dump != null && drill.selectDump) drill.selectDump(opts.dump);
+    if (drill.filterThreads) drill.filterThreads(opts);
+    if (drill.browserEl) drill.browserEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (opts.thread) setTimeout(() => {
+      const row = document.getElementById("thread-" + slug(opts.thread));
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        const det = row.querySelector("details");
+        if (det) det.open = true;
+      }
+    }, 80);
+  }
+
+  /** A clickable thread name that jumps to (and expands) that thread in the browser. */
+  function tlink(name, dump) {
+    return `<span class="tlink" data-thread="${esc(name)}"` +
+        (dump != null ? ` data-dump="${dump}"` : "") + `>${esc(name)}</span>`;
+  }
+
   let charts = [];          // live ECharts instances (disposed on re-render)
   let rebuilders = [];      // functions to rebuild charts on theme change
 
@@ -105,13 +128,14 @@ const TDA = (() => {
     return { backgroundColor: t.tooltipBg, borderColor: cssVar("--grid"),
              textStyle: { color: t.ink, fontSize: 12 }, confine: true };
   }
-  function makeChart(container, height, build) {
+  function makeChart(container, height, build, onClick) {
     const div = el("div", { class: "chart" });
     if (height) div.style.height = height + "px";
     container.appendChild(div);
     const rebuild = () => {
       const c = echarts.init(div, null, { renderer: "canvas" });
       c.setOption(build());
+      if (onClick) c.on("click", onClick);
       charts.push(c);
       return c;
     };
@@ -177,16 +201,20 @@ const TDA = (() => {
         yAxis: { type: "value", splitLine: t.splitLine, axisLabel: { color: t.textStyle.color } },
         series
       };
+    }, p => {
+      if (p.componentType === "series") {
+        drillToThreads({ dump: p.dataIndex, state: p.seriesName });
+      }
     });
   }
 
   function poolTrendChart(container, trends, dumps, gcPauses) {
     if (!trends.length) return;
+    const sorted = [...trends].sort((a, b) => Math.max(...b.counts) - Math.max(...a.counts));
+    const shown = sorted.slice(0, 8);
+    const rest = sorted.slice(8);
     makeChart(container, 300, () => {
       const t = chartTheme();
-      const sorted = [...trends].sort((a, b) => Math.max(...b.counts) - Math.max(...a.counts));
-      const shown = sorted.slice(0, 8);
-      const rest = sorted.slice(8);
       const colors = catColors();
       const series = shown.map((p, i) => ({
         name: trunc(p.pool, 40) + (p.leakSuspect ? " ⚠" : ""),
@@ -211,6 +239,10 @@ const TDA = (() => {
         yAxis: { type: "value", splitLine: t.splitLine, axisLabel: { color: t.textStyle.color } },
         series
       };
+    }, p => {
+      if (p.componentType !== "series") return;
+      const pool = p.seriesIndex < shown.length ? shown[p.seriesIndex].pool : null;
+      drillToThreads({ dump: p.dataIndex, pool });
     });
   }
 
@@ -240,81 +272,125 @@ const TDA = (() => {
         series: [{ type: "heatmap", data,
           itemStyle: { borderColor: cssVar("--surface"), borderWidth: 2, borderRadius: 3 } }]
       };
+    }, p => {
+      if (p.data && p.data.name) drillToThreads({ dump: p.value[0], thread: p.data.name });
     });
   }
 
   // Flame/icicle of aggregated RUNNABLE stacks for one dump (root = outermost frame).
-  function buildFlameRects(dump) {
-    const root = { name: "RUNNABLE", value: 0, children: new Map() };
+  function buildFlameTrie(dump) {
+    const root = { name: "all RUNNABLE", value: 0, children: new Map(), threads: [] };
     for (const th of dump.threads) {
       if (th.state !== "RUNNABLE" || !th.stack) continue;
       const frames = dump.stacks[th.stack];
       if (!frames || !frames.length) continue;
       root.value++;
+      if (root.threads.length < 20) root.threads.push(th.name);
       let node = root;
-      const rev = [...frames].reverse().slice(0, 30);
-      for (const f of rev) {
+      for (const f of [...frames].reverse().slice(0, 30)) {
         let c = node.children.get(f);
-        if (!c) { c = { name: f, value: 0, children: new Map() }; node.children.set(f, c); }
+        if (!c) { c = { name: f, value: 0, children: new Map(), threads: [] }; node.children.set(f, c); }
         c.value++;
+        if (c.threads.length < 20) c.threads.push(th.name);
         node = c;
       }
     }
+    return root;
+  }
+
+  function flattenFlame(root) {
     const rects = [];
     let maxDepth = 0;
     (function walk(node, depth, start) {
-      rects.push([start, node.value, depth, node.name]);
+      rects.push([start, node.value, depth, node.name, node]);
       maxDepth = Math.max(maxDepth, depth);
       let s = start;
       for (const c of node.children.values()) { walk(c, depth + 1, s); s += c.value; }
     })(root, 0, 0);
-    return { rects, total: root.value, maxDepth };
+    return { rects, maxDepth };
   }
 
+  // Click a frame to re-root the flame on that subtree; the breadcrumb resets the zoom and
+  // the strip below lists the threads passing through the current root as drill-down links.
   function flameChart(container, dump) {
-    const { rects, total, maxDepth } = buildFlameRects(dump);
-    if (total === 0) {
+    const fullRoot = buildFlameTrie(dump);
+    if (fullRoot.value === 0) {
       container.appendChild(el("p", { class: "sub" }, "No RUNNABLE threads with stacks in this dump."));
       return;
     }
-    const rowH = 18;
-    const h = Math.min(520, 60 + (maxDepth + 1) * rowH);
-    makeChart(container, h, () => {
-      const flame = [1, 2, 3, 4, 5].map(i => cssVar("--flame-" + i));
-      return {
-        tooltip: Object.assign(baseTooltip(), {
-          formatter: p => `<span class="mono">${esc(p.data[3])}</span><br>` +
-                          `${p.data[1]} thread(s) · ${(100 * p.data[1] / total).toFixed(1)}%`
-        }),
-        xAxis: { show: false, max: total },
-        yAxis: { show: false, max: Math.max(maxDepth + 1, 1), inverse: true },
-        grid: { left: 4, right: 4, top: 6, bottom: 6 },
-        series: [{
-          type: "custom",
-          data: rects,
-          renderItem: (params, api) => {
-            const item = rects[params.dataIndex];
-            const start = api.coord([item[0], item[2]]);
-            const end = api.coord([item[0] + item[1], item[2] + 1]);
-            const w = end[0] - start[0];
-            if (w < 0.6) return null;
-            const depth = item[2];
-            const name = item[3];
-            const shortName = name.replace(/\(.*\)$/, "").split(".").slice(-2).join(".");
-            return {
-              type: "rect",
-              shape: { x: start[0], y: start[1], width: Math.max(w - 1, 0.5), height: rowH - 2, r: 2 },
-              style: { fill: flame[depth % flame.length] },
-              textContent: w > 60 ? {
-                style: { text: trunc(shortName, Math.floor(w / 6.2)), fontSize: 10.5,
-                         fill: depth % flame.length >= 3 ? cssVar("--surface") : cssVar("--ink") }
-              } : null,
-              textConfig: { position: "insideLeft", inside: true }
-            };
-          }
-        }]
-      };
-    });
+    const crumb = el("div", { class: "crumb" });
+    const chartBox = el("div");
+    const info = el("div", { class: "sub" });
+    container.appendChild(crumb);
+    container.appendChild(chartBox);
+    container.appendChild(info);
+    const zoom = [fullRoot];
+
+    const draw = () => {
+      chartBox.innerHTML = "";
+      const rootNode = zoom[zoom.length - 1];
+      const { rects, maxDepth } = flattenFlame(rootNode);
+      const total = rootNode.value;
+      const rowH = 18;
+      const h = Math.min(520, 60 + (maxDepth + 1) * rowH);
+      makeChart(chartBox, h, () => {
+        const flame = [1, 2, 3, 4, 5].map(i => cssVar("--flame-" + i));
+        return {
+          tooltip: Object.assign(baseTooltip(), {
+            formatter: p => `<span class="mono">${esc(p.data[3])}</span><br>` +
+                            `${p.data[1]} thread(s) · ${(100 * p.data[1] / total).toFixed(1)}% · click to zoom`
+          }),
+          xAxis: { show: false, max: total },
+          yAxis: { show: false, max: Math.max(maxDepth + 1, 1), inverse: true },
+          grid: { left: 4, right: 4, top: 6, bottom: 6 },
+          series: [{
+            type: "custom",
+            data: rects,
+            renderItem: (params, api) => {
+              const item = rects[params.dataIndex];
+              const start = api.coord([item[0], item[2]]);
+              const end = api.coord([item[0] + item[1], item[2] + 1]);
+              const w = end[0] - start[0];
+              if (w < 0.6) return null;
+              const depth = item[2];
+              const name = item[3];
+              const shortName = name.replace(/\(.*\)$/, "").split(".").slice(-2).join(".");
+              return {
+                type: "rect",
+                shape: { x: start[0], y: start[1], width: Math.max(w - 1, 0.5), height: rowH - 2, r: 2 },
+                style: { fill: flame[depth % flame.length] },
+                textContent: w > 60 ? {
+                  style: { text: trunc(shortName, Math.floor(w / 6.2)), fontSize: 10.5,
+                           fill: depth % flame.length >= 3 ? cssVar("--surface") : cssVar("--ink") }
+                } : null,
+                textConfig: { position: "insideLeft", inside: true }
+              };
+            }
+          }]
+        };
+      }, p => {
+        const node = rects[p.dataIndex] && rects[p.dataIndex][4];
+        if (node && node !== rootNode) { zoom.push(node); draw(); }
+      });
+
+      if (zoom.length > 1) {
+        crumb.innerHTML = `<span class="tlink" data-zoomreset>⟵ reset zoom</span>` +
+            (zoom.length > 2 ? `<span class="tlink" data-zoomup>↑ up one</span>` : "") +
+            ` rooted at <span class="mono">${esc(trunc(rootNode.name, 80))}</span> · ${rootNode.value} thread(s)`;
+        crumb.querySelector("[data-zoomreset]").addEventListener("click", e => {
+          e.stopPropagation(); zoom.length = 1; draw();
+        });
+        const up = crumb.querySelector("[data-zoomup]");
+        if (up) up.addEventListener("click", e => { e.stopPropagation(); zoom.pop(); draw(); });
+        info.innerHTML = "threads through this frame: " +
+            rootNode.threads.map(n => tlink(n, dump.index)).join(", ") +
+            (rootNode.value > rootNode.threads.length ? ", …" : "");
+      } else {
+        crumb.textContent = "click a frame to zoom into its subtree";
+        info.innerHTML = "";
+      }
+    };
+    draw();
   }
 
   // Collapsible blocker dependency tree; node size follows transitive blocked count.
@@ -374,6 +450,8 @@ const TDA = (() => {
           emphasis: { focus: "descendant" }
         }]
       };
+    }, p => {
+      if (p.data && p.data.realName) drillToThreads({ dump: dump.index, thread: p.data.realName });
     });
   }
 
@@ -448,9 +526,17 @@ const TDA = (() => {
       const anchor = `finding-${slug(f.id)}-${anchorCounts[f.id]}`;
       const ev = f.evidence || {};
       let evHtml = "";
+      const evDump = typeof ev.dump === "number" ? ev.dump : null;
       for (const [k, v] of Object.entries(ev)) {
         if (k === "frames") { evHtml += stackDetails(v, "evidence frames"); continue; }
-        const val = Array.isArray(v) ? v.map(x => esc(String(x))).join(", ") : esc(String(v));
+        let val;
+        if ((k === "threads" || k === "frozenAcrossDumps") && Array.isArray(v)) {
+          val = v.map(x => tlink(String(x), evDump)).join(", ");
+        } else if (k === "thread") {
+          val = tlink(String(v), evDump);
+        } else {
+          val = Array.isArray(v) ? v.map(x => esc(String(x))).join(", ") : esc(String(v));
+        }
         evHtml += `<div class="sub"><b>${esc(k)}:</b> ${val}</div>`;
       }
       const card = el("div", { class: "card finding " + f.severity, id: anchor },
@@ -628,6 +714,28 @@ const TDA = (() => {
           stackDetails(g.frames, "shared stack") + `</div>`).join("");
       root.appendChild(el("div", null, `<h3>${esc(n.node)}</h3>${cards}`));
     }
+
+    // node drill-down: the full per-node report, embedded with --cluster-detail
+    if (c.nodeReports && Object.keys(c.nodeReports).length) {
+      root.appendChild(el("h2", null, "Node drill-down"));
+      const controls = el("div", { class: "controls" });
+      const sel = el("select");
+      Object.keys(c.nodeReports).forEach(n => sel.appendChild(el("option", { value: n }, esc(n))));
+      controls.appendChild(el("label", null, "Node: "));
+      controls.appendChild(sel);
+      root.appendChild(controls);
+      const box = el("div");
+      root.appendChild(box);
+      const renderNode = () => {
+        box.innerHTML = "";
+        renderAnalysis(c.nodeReports[sel.value], box);
+      };
+      sel.addEventListener("change", renderNode);
+      renderNode();
+    } else {
+      root.appendChild(el("p", { class: "sub" },
+          "Run with --cluster-detail to embed each node's full report for drill-down."));
+    }
   }
 
   function seriesSection(root, data) {
@@ -636,7 +744,7 @@ const TDA = (() => {
     if (stuck.length) {
       root.appendChild(el("h2", null, "Long-running / stuck threads"));
       const rows = stuck.map(st =>
-          `<tr><td>${esc(st.name)}</td><td class="num">${st.fromDump}–${st.toDump}</td>` +
+          `<tr><td>${tlink(st.name, st.toDump)}</td><td class="num">${st.fromDump}–${st.toDump}</td>` +
           `<td class="num">${st.dumpsUnchanged}</td><td>${st.states.map(stateChip).join(" ")}</td>` +
           `<td><span class="badge">${esc(st.verdict || "")}</span> ` +
           `<span class="sub">${esc(st.confidence || "")}</span></td>` +
@@ -652,10 +760,12 @@ const TDA = (() => {
     const holders = s.persistentLockHolders || [];
     if (holders.length) {
       root.appendChild(el("h2", null, "Persistent lock holders"));
-      const rows = holders.map(h =>
-          `<tr><td>${esc(h.holder)}</td><td class="mono">${esc(h.lockClass)}</td>` +
-          `<td class="num">${h.dumps.join(", ")}</td><td class="num">${h.starvedTotal}</td>` +
-          `<td class="sub">${h.sampleWaiters.map(esc).join(", ")}</td></tr>`).join("");
+      const rows = holders.map(h => {
+        const lastDump = h.dumps[h.dumps.length - 1];
+        return `<tr><td>${tlink(h.holder, lastDump)}</td><td class="mono">${esc(h.lockClass)}</td>` +
+            `<td class="num">${h.dumps.join(", ")}</td><td class="num">${h.starvedTotal}</td>` +
+            `<td class="sub">${h.sampleWaiters.map(n => tlink(n, lastDump)).join(", ")}</td></tr>`;
+      }).join("");
       root.appendChild(el("div", { class: "card tablewrap" },
           `<table><thead><tr><th>Holder</th><th>Lock</th><th class="num">Dumps held</th>` +
           `<th class="num">Threads starved</th><th>Waiters (sample)</th></tr></thead><tbody>${rows}</tbody></table>`));
@@ -703,6 +813,12 @@ const TDA = (() => {
     root.appendChild(body);
     const renderDump = () => { body.innerHTML = ""; renderDumpDetail(body, dumps[+sel.value]); };
     sel.addEventListener("change", renderDump);
+    drill.selectDump = i => {
+      if (sel.value !== String(i)) {
+        sel.value = String(i);
+        renderDump();
+      }
+    };
     renderDump();
   }
 
@@ -711,7 +827,7 @@ const TDA = (() => {
     for (const dl of d.deadlocks || []) {
       root.appendChild(el("div", { class: "card finding CRITICAL" },
           `<span class="sevtag CRITICAL">DEADLOCK</span><b>${dl.threads.length} threads in a cycle</b>` +
-          ` <span class="badge">${esc(dl.source)}</span><div class="mono">${dl.threads.map(esc).join(" → ")}</div>`));
+          ` <span class="badge">${esc(dl.source)}</span><div class="mono">${dl.threads.map(n => tlink(n, d.index)).join(" → ")}</div>`));
     }
     // flame + blocker tree
     const g2 = el("div", { class: "grid2" });
@@ -730,23 +846,28 @@ const TDA = (() => {
       const rows = d.carriers.map(c =>
           `<tr><td>${esc(c.carrier)}</td><td class="mono">${esc(c.carrierTid)}</td>` +
           `<td class="num">${c.count}</td>` +
-          `<td class="sub">${c.virtualThreads.map(esc).join(", ")}${c.count > c.virtualThreads.length ? ", …" : ""}</td></tr>`).join("");
+          `<td class="sub">${c.virtualThreads.map(n => tlink(n, d.index)).join(", ")}${c.count > c.virtualThreads.length ? ", …" : ""}</td></tr>`).join("");
       root.appendChild(el("div", { class: "card tablewrap" },
           `<h3>Carrier threads → virtual threads</h3><table><thead><tr><th>Carrier</th>` +
           `<th>tid</th><th class="num">Virtual threads</th><th>Names</th></tr></thead>` +
           `<tbody>${rows}</tbody></table>`));
     }
 
-    // pools
+    // pools / work managers with busy-idle utilization; pool names drill into the browser
     if ((d.pools || []).length) {
       const rows = d.pools.map(p => {
         const st = STATE_ORDER.filter(s => p.states[s])
-            .map(s => `${stateChip(s)} ${p.states[s]}`).join("   ");
-        return `<tr><td>${esc(p.pool)}</td><td class="num">${p.count}</td><td>${st}</td>` +
+            .map(s => `${stateChip(s)} ${p.states[s]}`).join("   ");
+        const busyPct = p.count ? Math.round(100 * (p.busy || 0) / p.count) : 0;
+        return `<tr><td><span class="tlink" data-pool="${esc(p.pool)}" data-dump="${d.index}">` +
+               `${esc(p.pool)}</span></td><td class="num">${p.count}</td>` +
+               `<td class="num">${p.busy != null ? p.busy + ` <span class="sub">(${busyPct}%)</span>` : ""}</td>` +
+               `<td class="num">${p.idle != null ? p.idle : ""}</td><td>${st}</td>` +
                `<td class="num ${p.stuck ? "leak" : ""}">${p.stuck || ""}</td></tr>`;
       }).join("");
       root.appendChild(el("div", { class: "card tablewrap" },
-          `<h3>Thread pools</h3><table><thead><tr><th>Pool</th><th class="num">Threads</th>` +
+          `<h3>Thread pools / work managers</h3><table><thead><tr><th>Pool</th>` +
+          `<th class="num">Threads</th><th class="num">Busy</th><th class="num">Idle</th>` +
           `<th>States</th><th class="num">[STUCK]</th></tr></thead><tbody>${rows}</tbody></table>`));
     }
     // "where is the time going": activity-category breakdown
@@ -762,9 +883,10 @@ const TDA = (() => {
     // top recurring stacks
     if ((d.topStacks || []).length) {
       const cards = d.topStacks.map(g => {
-        const st = Object.entries(g.states).map(([s, n]) => `${stateChip(s)} ${n}`).join("   ");
-        return `<div class="card"><b>${g.count} threads</b>   ${st}` +
-               `<div class="sub">${g.threads.slice(0, 6).map(esc).join(", ")}${g.threads.length > 6 ? ", …" : ""}</div>` +
+        const st = Object.entries(g.states).map(([s, n]) => `${stateChip(s)} ${n}`).join("   ");
+        return `<div class="card"><b>${g.count} threads</b>  ${st}  ` +
+               `<span class="tlink" data-hash="${esc(g.hash)}" data-dump="${d.index}">show all ${g.count} in the browser</span>` +
+               `<div class="sub">${g.threads.slice(0, 6).map(n => tlink(n, d.index)).join(", ")}${g.threads.length > 6 ? ", …" : ""}</div>` +
                stackDetails(g.frames, "shared stack") + `</div>`;
       }).join("");
       root.appendChild(el("div", null, `<h3>Top recurring stacks (identical-stack groups)</h3>${cards}`));
@@ -773,8 +895,9 @@ const TDA = (() => {
     if ((d.contendedLocks || []).length) {
       const rows = d.contendedLocks.map(l =>
           `<tr><td class="mono">${esc(l.address)}</td><td class="mono">${esc(l["class"])}</td>` +
-          `<td>${esc(l.holder || "(no visible holder)")}</td><td class="num">${l.waiters.length}</td>` +
-          `<td class="sub">${l.waiters.slice(0, 5).map(esc).join(", ")}${l.waiters.length > 5 ? ", …" : ""}</td></tr>`).join("");
+          `<td>${l.holder ? tlink(l.holder, d.index) : '<span class="sub">(no visible holder)</span>'}</td>` +
+          `<td class="num">${l.waiters.length}</td>` +
+          `<td class="sub">${l.waiters.slice(0, 5).map(n => tlink(n, d.index)).join(", ")}${l.waiters.length > 5 ? ", …" : ""}</td></tr>`).join("");
       root.appendChild(el("div", { class: "card tablewrap" },
           `<h3>Contended locks</h3><table><thead><tr><th>Address</th><th>Class</th><th>Holder</th>` +
           `<th class="num">Waiters</th><th>Waiting threads</th></tr></thead><tbody>${rows}</tbody></table>`));
@@ -889,10 +1012,24 @@ const TDA = (() => {
     pr.appendChild(el("option", { value: "" }, "any priority"));
     [...new Set(d.threads.map(t => t.prio).filter(p => p != null))].sort((a, b) => a - b)
         .forEach(p => pr.appendChild(el("option", { value: p }, "prio " + p)));
-    controls.appendChild(q); controls.appendChild(st); controls.appendChild(dm); controls.appendChild(pr);
+    const pl = el("select");
+    pl.appendChild(el("option", { value: "" }, "any pool"));
+    [...new Set(d.threads.map(t => t.pool).filter(Boolean))].sort()
+        .forEach(x => pl.appendChild(el("option", { value: x }, trunc(x, 40))));
+    controls.appendChild(q); controls.appendChild(st); controls.appendChild(dm);
+    controls.appendChild(pr); controls.appendChild(pl);
+    let stackHash = null; // programmatic filter from "show all N in the browser" drill-downs
+    const chip = el("span");
+    controls.appendChild(chip);
     const count = el("span", { class: "sub" });
     controls.appendChild(count);
     card.appendChild(controls);
+    const updateChip = () => {
+      chip.innerHTML = stackHash
+          ? `<span class="filterchip">stack ${esc(stackHash)} <b title="clear">✕</b></span>` : "";
+      const x = chip.querySelector("b");
+      if (x) x.addEventListener("click", () => { stackHash = null; updateChip(); renderList(); });
+    };
     const list = el("div", { class: "tablewrap" });
     card.appendChild(list);
     const renderList = () => {
@@ -904,6 +1041,8 @@ const TDA = (() => {
         if (dm.value === "y" && !t.daemon) continue;
         if (dm.value === "n" && t.daemon) continue;
         if (pr.value !== "" && String(t.prio) !== pr.value) continue;
+        if (pl.value !== "" && t.pool !== pl.value) continue;
+        if (stackHash && t.stack !== stackHash) continue;
         const frames = t.stack ? d.stacks[t.stack] : [];
         if (needle) {
           const hay = (t.name + " " + (t.nid || "") + " " + (t.nidDec || "") + " "
@@ -931,11 +1070,57 @@ const TDA = (() => {
                        `<tbody>${rows.join("")}</tbody></table>`;
     };
     q.addEventListener("input", renderList);
-    [st, dm, pr].forEach(x => x.addEventListener("change", renderList));
+    [st, dm, pr, pl].forEach(x => x.addEventListener("change", renderList));
+
+    // register as the drill-down target for charts, findings, and tables
+    drill.browserEl = card;
+    drill.filterThreads = opts => {
+      if (opts.state !== undefined) st.value = opts.state || "";
+      if (opts.pool !== undefined) {
+        pl.value = opts.pool && [...pl.options].some(o => o.value === opts.pool) ? opts.pool : "";
+        if (opts.pool && pl.value === "") q.value = opts.pool; // pool absent in this dump
+      }
+      if (opts.stackHash !== undefined) stackHash = opts.stackHash || null;
+      if (opts.thread !== undefined) {
+        q.value = opts.thread || "";
+        stackHash = null;
+        st.value = "";
+        pl.value = "";
+      } else if (opts.state || opts.pool || opts.stackHash) {
+        q.value = "";
+      }
+      updateChip();
+      renderList();
+    };
     renderList();
   }
 
   // ---------------------------------------------------------------- entry point
+
+  /** One delegated listener per root handles every .tlink / stack-hash / pool drill-down. */
+  function installDrillListener(root) {
+    if (root.dataset.tdaDrill) return;
+    root.dataset.tdaDrill = "1";
+    root.addEventListener("click", e => {
+      const t = e.target.closest("[data-thread], [data-hash], [data-pool]");
+      if (!t) return;
+      const dump = t.dataset.dump != null ? +t.dataset.dump : undefined;
+      if (t.dataset.thread) drillToThreads({ dump, thread: t.dataset.thread });
+      else if (t.dataset.hash) drillToThreads({ dump, stackHash: t.dataset.hash });
+      else if (t.dataset.pool) drillToThreads({ dump, pool: t.dataset.pool });
+    });
+  }
+
+  /** The full single-series report body; also reused for cluster node drill-down. */
+  function renderAnalysis(data, root) {
+    meaningsCatalog = data.meaningsCatalog || [];
+    metaSection(root, data);
+    findingsSection(root, data);
+    similarIncidentsSection(root, data);
+    chartsSection(root, data);
+    seriesSection(root, data);
+    dumpSection(root, data);
+  }
 
   function render(data, root) {
     charts.forEach(c => c.dispose());
@@ -947,6 +1132,7 @@ const TDA = (() => {
       if (v) harvestedNotes[ta.getAttribute("data-anchor")] = v;
     });
     root.innerHTML = "";
+    installDrillListener(root);
     if (data && data.cluster) {
       meaningsCatalog = data.meaningsCatalog || [];
       clusterSection(root, data);
@@ -956,13 +1142,7 @@ const TDA = (() => {
       root.appendChild(el("p", { class: "err" }, "No thread dumps found in the input."));
       return;
     }
-    meaningsCatalog = data.meaningsCatalog || [];
-    metaSection(root, data);
-    findingsSection(root, data);
-    similarIncidentsSection(root, data);
-    chartsSection(root, data);
-    seriesSection(root, data);
-    dumpSection(root, data);
+    renderAnalysis(data, root);
     root.appendChild(el("footer", null,
         `tda ${esc((data.tool || {}).version || "")} · fully offline · ` +
         `options: stuckK=${esc(String((data.options || {}).stuckK))}, ` +
@@ -974,10 +1154,12 @@ const TDA = (() => {
   const onTheme = () => {
     charts.forEach(c => c.dispose());
     charts = [];
+    rebuilders = rebuilders.filter(r => r.div.isConnected);
     rebuilders.forEach(r => r.rebuild());
   };
   if (media.addEventListener) media.addEventListener("change", onTheme);
-  window.addEventListener("resize", () => charts.forEach(c => c.resize()));
+  window.addEventListener("resize", () =>
+      charts.forEach(c => { if (!c.isDisposed() && c.getDom().isConnected) c.resize(); }));
 
   return { render };
 })();

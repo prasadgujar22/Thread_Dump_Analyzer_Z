@@ -151,6 +151,10 @@ stuck classification, thread leaks) remain native code — same findings pipelin
   `--cluster-manifest file`) analyzes each node as its own series and adds a cross-node
   section with deterministic, explainable outlier scoring — e.g.
   `node node7 diverges: 34 threads BLOCKED on CacheManager (fleet median: 0)`.
+  Add `--cluster-detail` to embed each node's full analysis in the report: a
+  "Node drill-down" selector then renders any node's complete single-node view
+  (findings, charts, thread browser) inline. Off by default because the report
+  grows with node count.
 * **Incident memory**: each analysis is stored in an embedded H2 db at `~/.tda/history.db`
   (`--history-db`, `--no-history`); similar past incidents (≥30% Jaccard overlap of
   recurring-stack fingerprints) appear in the report with label/date/shared stacks. CLI:
@@ -251,6 +255,7 @@ java -jar tda.jar analyze <files...> [options]
   --rules <file>             site rule pack(s), repeatable
   --frame-meanings <file>    site frame-meaning overrides
   --cluster name=glob        cluster mode, repeatable (also --cluster-manifest)
+  --cluster-detail           embed full per-node reports for in-report drill-down
   --label <build>            tag this analysis in history (release drift)
   --no-history / --history-db <path>
   --fail-on critical|warning exit 1 when threshold met (0 clean, 2 usage, 3 parse failure)

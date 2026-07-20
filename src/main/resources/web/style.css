@@ -24,7 +24,7 @@
   /* categorical slots for pool lines (reference order) */
   --cat-1: #2a78d6; --cat-2: #008300; --cat-3: #e87ba4; --cat-4: #eda100;
   --cat-5: #1baf7a; --cat-6: #eb6834; --cat-7: #4a3aa7; --cat-8: #e34948;
-  --flame-1: #b7d3f6; --flame-2: #86b6ef; --flame-3: #5598e7; --flame-4: #2a78d6; --flame-5: #1c5cab;
+  --flame-1: #f9d6cf; --flame-2: #f4ab9c; --flame-3: #e97f6c; --flame-4: #d55442; --flame-5: #b03a2e;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -48,7 +48,7 @@
     --st-new: #9085e9;
     --cat-1: #3987e5; --cat-2: #008300; --cat-3: #d55181; --cat-4: #c98500;
     --cat-5: #199e70; --cat-6: #d95926; --cat-7: #9085e9; --cat-8: #e66767;
-    --flame-1: #184f95; --flame-2: #256abf; --flame-3: #3987e5; --flame-4: #6da7ec; --flame-5: #9ec5f4;
+    --flame-1: #7a2a20; --flame-2: #9c3c2d; --flame-3: #c05540; --flame-4: #dd7d64; --flame-5: #f0a98f;
   }
 }
 :root[data-theme="dark"] {
@@ -72,7 +72,7 @@
   --st-new: #9085e9;
   --cat-1: #3987e5; --cat-2: #008300; --cat-3: #d55181; --cat-4: #c98500;
   --cat-5: #199e70; --cat-6: #d95926; --cat-7: #9085e9; --cat-8: #e66767;
-  --flame-1: #184f95; --flame-2: #256abf; --flame-3: #3987e5; --flame-4: #6da7ec; --flame-5: #9ec5f4;
+  --flame-1: #7a2a20; --flame-2: #9c3c2d; --flame-3: #c05540; --flame-4: #dd7d64; --flame-5: #f0a98f;
 }
 
 * { box-sizing: border-box; }
@@ -164,3 +164,18 @@ textarea { width: 100%; min-height: 90px; }
 .err { color: var(--critical); }
 .badge { background: var(--page); border: 1px solid var(--grid); border-radius: 10px; padding: 0 8px; font-size: 11.5px; color: var(--ink-2); }
 footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+
+/* drill-down links: thread/pool names that navigate the report */
+.tlink {
+  color: var(--info); cursor: pointer; text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.tlink:hover { text-decoration: underline; }
+.filterchip {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--page);
+  border: 1px solid var(--info); color: var(--info); border-radius: 10px;
+  padding: 0 8px; font-size: 11.5px;
+}
+.filterchip b { cursor: pointer; }
+.crumb { font-size: 12px; color: var(--ink-2); margin: 4px 0; }
+.crumb .tlink { margin-right: 6px; }

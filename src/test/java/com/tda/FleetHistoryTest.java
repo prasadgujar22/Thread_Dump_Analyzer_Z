@@ -17,6 +17,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Phase D: cluster outlier scoring, H2 incident memory, release drift. */
@@ -60,6 +61,23 @@ class FleetHistoryTest {
         Map<String, Object> cluster = new ClusterAnalyzer(
                 new AnalysisEngine(new AnalysisOptions())).analyze(nodes);
         assertEquals(List.of(), cluster.get("outliers"));
+    }
+
+    @Test
+    void clusterDetailEmbedsPerNodeReports() {
+        Map<String, DumpSeries> nodes = new LinkedHashMap<>();
+        nodes.put("a", Fixtures.series("healthy_jdk17.txt"));
+        nodes.put("b", Fixtures.series("blocked_chain_jdk17.log"));
+        ClusterAnalyzer analyzer = new ClusterAnalyzer(new AnalysisEngine(new AnalysisOptions()));
+
+        assertNull(analyzer.analyze(nodes).get("nodeReports"), "default stays lean");
+
+        Map<String, Object> detailed = analyzer.analyze(nodes, true);
+        Map<String, Object> reports = (Map<String, Object>) detailed.get("nodeReports");
+        assertEquals(Set.of("a", "b"), reports.keySet());
+        Map<String, Object> nodeB = (Map<String, Object>) reports.get("b");
+        assertNotNull(nodeB.get("dumps"), "each node report is a full analysis document");
+        assertNotNull(nodeB.get("findings"));
     }
 
     // ---------------------------------------------------------------- incident memory
