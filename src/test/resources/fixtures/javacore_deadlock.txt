@@ -1,0 +1,81 @@
+NULL           ------------------------------------------------------------------------
+0SECTION       TITLE subcomponent dump routine
+NULL           ===============================
+1TICHARSET     UTF-8
+1TISIGINFO     Dump Event "user" (00004000) received 
+1TIDATETIME    Date: 2026/07/12 at 10:15:30
+1TIDATETIMEUTC Date: 2026/07/12 at 08:15:30 (UTC)
+1TIFILENAME    Javacore filename: /opt/apps/javacore.20260712.101530.9876.0001.txt
+NULL           ------------------------------------------------------------------------
+0SECTION       ENVINFO subcomponent dump routine
+NULL           =================================
+1CIJAVAVERSION JRE 17 Linux amd64-64 (build 17.0.11+9, IBM Semeru Runtime Open Edition)
+1CIVMVERSION   openj9-0.44.0
+1CIRUNNINGAS   Running as a standalone JVM
+NULL           ------------------------------------------------------------------------
+0SECTION       LOCKS subcomponent dump routine
+NULL           ===============================
+NULL           
+1LKPOOLINFO    Monitor pool info:
+2LKPOOLTOTAL     Current total number of monitors: 4
+NULL           
+1LKMONPOOLDUMP Monitor Pool Dump (flat & inflated object-monitors):
+2LKMONINUSE      sys_mon_t:0x00007FB410004F58 infl_mon_t: 0x00007FB410004FD0:
+3LKMONOBJECT       java/lang/Object@0x00000000FFE01110: owner "DeadLockThread 0" (0x0000000000A11100), entry count 1
+3LKWAITERQ            Waiting to enter:
+3LKWAITER                "DeadLockThread 1" (0x0000000000A22200)
+2LKMONINUSE      sys_mon_t:0x00007FB410005158 infl_mon_t: 0x00007FB4100051D0:
+3LKMONOBJECT       java/lang/Object@0x00000000FFE02220: owner "DeadLockThread 1" (0x0000000000A22200), entry count 1
+3LKWAITERQ            Waiting to enter:
+3LKWAITER                "DeadLockThread 0" (0x0000000000A11100)
+NULL           
+1LKDEADLOCK    Deadlock detected !!!
+NULL           ---------------------
+NULL           
+2LKDEADLOCKTHR  Thread "DeadLockThread 0" (0x0000000000A11100)
+3LKDEADLOCKWTR    is waiting for:
+4LKDEADLOCKMON      sys_mon_t:0x00007FB410005158 infl_mon_t: 0x00007FB4100051D0:
+4LKDEADLOCKOBJ      java/lang/Object@0x00000000FFE02220
+3LKDEADLOCKOWN    which is owned by:
+2LKDEADLOCKTHR  Thread "DeadLockThread 1" (0x0000000000A22200)
+3LKDEADLOCKWTR    which is waiting for:
+4LKDEADLOCKMON      sys_mon_t:0x00007FB410004F58 infl_mon_t: 0x00007FB410004FD0:
+4LKDEADLOCKOBJ      java/lang/Object@0x00000000FFE01110
+3LKDEADLOCKOWN    which is owned by:
+2LKDEADLOCKTHR  Thread "DeadLockThread 0" (0x0000000000A11100)
+NULL           ------------------------------------------------------------------------
+0SECTION       THREADS subcomponent dump routine
+NULL           =================================
+NULL           
+1XMTHDINFO     Threads details
+NULL           
+2XMFULLTHDDUMP Full thread dump J9 VM (2.9 Linux amd64-64 Compressed references openj9-0.44.0 (JIT enabled, AOT enabled)):
+3XMTHREADINFO      "main" J9VMThread:0x0000000000019100, omrthread_t:0x00007FB4100089A8, java/lang/Thread:0x00000000FFE00D28, state:CW, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x1, isDaemon:false)
+3XMTHREADINFO1            (native thread ID:0x2694, native priority:0x5, native policy:UNKNOWN, vmstate:CW, vm thread flags:0x00000401)
+3XMCPUTIME               CPU usage total: 0.400000000 secs, user: 0.350000000 secs, system: 0.050000000 secs, current category="Application"
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at java/lang/Thread.joinImpl(Native Method)
+4XESTACKTRACE                at java/lang/Thread.join(Thread.java:1319)
+4XESTACKTRACE                at com/acme/DeadlockDemo.main(DeadlockDemo.java:20)
+NULL
+3XMTHREADINFO      "DeadLockThread 0" J9VMThread:0x0000000000A11100, omrthread_t:0x00007FB410108B08, java/lang/Thread:0x00000000FFE03D30, state:B, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x15, isDaemon:false)
+3XMTHREADINFO1            (native thread ID:0x26A0, native priority:0x5, native policy:UNKNOWN, vmstate:B, vm thread flags:0x00000201)
+3XMCPUTIME               CPU usage total: 0.010000000 secs, user: 0.010000000 secs, system: 0.000000000 secs, current category="Application"
+3XMTHREADBLOCK     Blocked on: java/lang/Object@0x00000000FFE02220 Owned by: "DeadLockThread 1" (J9VMThread:0x0000000000A22200, java/lang/Thread:0x00000000FFE04E40)
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at com/acme/DeadlockDemo$Locker.run(DeadlockDemo.java:44)
+5XESTACKTRACE                   (entered lock: java/lang/Object@0x00000000FFE01110, entry count: 1)
+NULL
+3XMTHREADINFO      "DeadLockThread 1" J9VMThread:0x0000000000A22200, omrthread_t:0x00007FB410109C18, java/lang/Thread:0x00000000FFE04E40, state:B, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x16, isDaemon:false)
+3XMTHREADINFO1            (native thread ID:0x26A1, native priority:0x5, native policy:UNKNOWN, vmstate:B, vm thread flags:0x00000201)
+3XMCPUTIME               CPU usage total: 0.010000000 secs, user: 0.010000000 secs, system: 0.000000000 secs, current category="Application"
+3XMTHREADBLOCK     Blocked on: java/lang/Object@0x00000000FFE01110 Owned by: "DeadLockThread 0" (J9VMThread:0x0000000000A11100, java/lang/Thread:0x00000000FFE03D30)
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at com/acme/DeadlockDemo$Locker.run(DeadlockDemo.java:52)
+5XESTACKTRACE                   (entered lock: java/lang/Object@0x00000000FFE02220, entry count: 1)
+NULL
+0SECTION       Javadump End section
+NULL           ---------------------- END OF DUMP -------------------------------------

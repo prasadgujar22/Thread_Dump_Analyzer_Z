@@ -1,0 +1,149 @@
+NULL           ------------------------------------------------------------------------
+0SECTION       TITLE subcomponent dump routine
+NULL           ===============================
+1TICHARSET     UTF-8
+1TISIGINFO     Dump Event "user" (00004000) received 
+1TIDATETIME    Date: 2026/07/12 at 09:41:03:123
+1TIFILENAME    Javacore filename: /opt/IBM/WebSphere/AppServer/profiles/AppSrv01/javacore.20260712.094103.12345.0001.txt
+NULL           ------------------------------------------------------------------------
+0SECTION       GPINFO subcomponent dump routine
+NULL           ================================
+2XHOSLEVEL     OS Level         : Linux 4.18.0-513.el8.x86_64
+2XHCPUS        Processors -
+3XHCPUARCH       Architecture   : amd64
+3XHNUMCPUS       How Many       : 8
+NULL           ------------------------------------------------------------------------
+0SECTION       ENVINFO subcomponent dump routine
+NULL           =================================
+1CIJAVAVERSION JRE 1.8.0 Linux amd64-64 (build 8.0.8.21 - pxa6480sr8fp21-20240320_01(SR8 FP21))
+1CIVMVERSION   20240320_23577
+1CIJITVERSION  tr.open_java8_20240320_23577
+1CIRUNNINGAS   Running as a standalone JVM
+1CICMDLINE     /opt/IBM/WebSphere/AppServer/java/8.0/bin/java -Declipse.security -Dwas.status.socket=45123 com.ibm.ws.runtime.WsServer /opt/IBM/WebSphere/AppServer/profiles/AppSrv01/config cell01 node01 server1
+NULL           ------------------------------------------------------------------------
+0SECTION       MEMINFO subcomponent dump routine
+NULL           =================================
+1STHEAPTYPE    Object Memory
+NULL           ------------------------------------------------------------------------
+0SECTION       LOCKS subcomponent dump routine
+NULL           ===============================
+NULL           
+1LKPOOLINFO    Monitor pool info:
+2LKPOOLTOTAL     Current total number of monitors: 12
+NULL           
+1LKMONPOOLDUMP Monitor Pool Dump (flat & inflated object-monitors):
+2LKMONINUSE      sys_mon_t:0x00007F3A2C004F58 infl_mon_t: 0x00007F3A2C004FD0:
+3LKMONOBJECT       com/acme/cache/CacheManager@0x00000000E00A1B28: owner "WebContainer : 1" (0x00000000024B5F00), entry count 1
+3LKWAITERQ            Waiting to enter:
+3LKWAITER                "WebContainer : 2" (0x00000000024B7100)
+3LKWAITER                "WebContainer : 3" (0x00000000024B8200)
+2LKMONINUSE      sys_mon_t:0x00007F3A2C005158 infl_mon_t: 0x00007F3A2C0051D0:
+3LKMONOBJECT       java/lang/Object@0x00000000E00B2C38: <unowned>
+3LKNOTIFYQ            Waiting to be notified:
+3LKWAITNOTIFY            "Deferrable Alarm : 0" (0x00000000024C0300)
+NULL           
+1LKREGMONDUMP  JVM System Monitor Dump (registered monitors):
+2LKREGMON          Thread global lock (0x00007F3A2C003F00): <unowned>
+NULL           ------------------------------------------------------------------------
+0SECTION       THREADS subcomponent dump routine
+NULL           =================================
+NULL           
+1XMPOOLINFO    JVM Thread pool info:
+2XMPOOLTOTAL       Current total number of pooled threads: 9
+2XMPOOLLIVE        Current total number of live threads: 9
+NULL           
+1XMTHDINFO     Threads details
+NULL           
+2XMFULLTHDDUMP Full thread dump J9 VM (2.9 Linux amd64-64 Compressed references 20240320_23577 (JIT enabled, AOT enabled)):
+3XMTHREADINFO      "main" J9VMThread:0x0000000000019100, omrthread_t:0x00007F3A2C0089A8, java/lang/Thread:0x00000000E0001D28, state:CW, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x1, isDaemon:false)
+3XMTHREADINFO1            (native thread ID:0x3039, native priority:0x5, native policy:UNKNOWN, vmstate:CW, vm thread flags:0x00000401)
+3XMCPUTIME               CPU usage total: 5.234567890 secs, user: 4.100000000 secs, system: 1.134567890 secs, current category="Application"
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at java/lang/Object.wait(Native Method)
+4XESTACKTRACE                at java/lang/Object.wait(Object.java:502)
+4XESTACKTRACE                at com/ibm/ws/runtime/WsServerImpl.main(WsServerImpl.java:684(Compiled Code))
+3XMTHREADINFO3           Native callstack:
+4XENATIVESTACK               (0x00007F3A2B123456 [libj9prt29.so+0x53456])
+NULL
+3XMTHREADINFO      "WebContainer : 0" J9VMThread:0x00000000024B4E00, omrthread_t:0x00007F3A2C108B08, java/lang/Thread:0x00000000E0102D30, state:CW, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x45, isDaemon:true)
+3XMTHREADINFO1            (native thread ID:0x4A21, native priority:0x5, native policy:UNKNOWN, vmstate:CW, vm thread flags:0x00000401)
+3XMCPUTIME               CPU usage total: 0.101000000 secs, user: 0.080000000 secs, system: 0.021000000 secs, current category="Application"
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at java/lang/Object.wait(Native Method)
+4XESTACKTRACE                at java/lang/Object.wait(Object.java:502)
+4XESTACKTRACE                at com/ibm/ws/util/BoundedBuffer.waitGet_(BoundedBuffer.java:214)
+4XESTACKTRACE                at com/ibm/ws/util/BoundedBuffer.take(BoundedBuffer.java:703)
+4XESTACKTRACE                at com/ibm/ws/util/ThreadPool.getTask(ThreadPool.java:928)
+4XESTACKTRACE                at com/ibm/ws/util/ThreadPool$Worker.run(ThreadPool.java:1752)
+NULL
+3XMTHREADINFO      "WebContainer : 1" J9VMThread:0x00000000024B5F00, omrthread_t:0x00007F3A2C109C18, java/lang/Thread:0x00000000E0103E40, state:R, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x46, isDaemon:true)
+3XMTHREADINFO1            (native thread ID:0x4A22, native priority:0x5, native policy:UNKNOWN, vmstate:R, vm thread flags:0x00000020)
+3XMCPUTIME               CPU usage total: 12.345678900 secs, user: 11.000000000 secs, system: 1.345678900 secs, current category="Application"
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at java/net/SocketInputStream.socketRead0(Native Method)
+4XESTACKTRACE                at java/net/SocketInputStream.socketRead(SocketInputStream.java:116)
+4XESTACKTRACE                at java/net/SocketInputStream.read(SocketInputStream.java:171(Compiled Code))
+4XESTACKTRACE                at oracle/net/ns/Packet.receive(Packet.java:311)
+4XESTACKTRACE                at oracle/jdbc/driver/T4CStatement.executeForRows(T4CStatement.java:925)
+4XESTACKTRACE                at com/acme/cache/CacheManager.refresh(CacheManager.java:88)
+5XESTACKTRACE                   (entered lock: com/acme/cache/CacheManager@0x00000000E00A1B28, entry count: 1)
+4XESTACKTRACE                at com/acme/web/ReportServlet.doGet(ReportServlet.java:41)
+4XESTACKTRACE                at com/ibm/ws/webcontainer/servlet/ServletWrapper.service(ServletWrapper.java:1233)
+4XESTACKTRACE                at com/ibm/ws/util/ThreadPool$Worker.run(ThreadPool.java:1752)
+NULL
+3XMTHREADINFO      "WebContainer : 2" J9VMThread:0x00000000024B7100, omrthread_t:0x00007F3A2C10AD28, java/lang/Thread:0x00000000E0104F50, state:B, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x47, isDaemon:true)
+3XMTHREADINFO1            (native thread ID:0x4A23, native priority:0x5, native policy:UNKNOWN, vmstate:B, vm thread flags:0x00000201)
+3XMCPUTIME               CPU usage total: 0.523000000 secs, user: 0.500000000 secs, system: 0.023000000 secs, current category="Application"
+3XMTHREADBLOCK     Blocked on: com/acme/cache/CacheManager@0x00000000E00A1B28 Owned by: "WebContainer : 1" (J9VMThread:0x00000000024B5F00, java/lang/Thread:0x00000000E0103E40)
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at com/acme/cache/CacheManager.get(CacheManager.java:55)
+4XESTACKTRACE                at com/acme/web/CatalogServlet.doGet(CatalogServlet.java:29)
+4XESTACKTRACE                at com/ibm/ws/webcontainer/servlet/ServletWrapper.service(ServletWrapper.java:1233)
+4XESTACKTRACE                at com/ibm/ws/util/ThreadPool$Worker.run(ThreadPool.java:1752)
+NULL
+3XMTHREADINFO      "WebContainer : 3" J9VMThread:0x00000000024B8200, omrthread_t:0x00007F3A2C10BE38, java/lang/Thread:0x00000000E0106060, state:B, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x48, isDaemon:true)
+3XMTHREADINFO1            (native thread ID:0x4A24, native priority:0x5, native policy:UNKNOWN, vmstate:B, vm thread flags:0x00000201)
+3XMCPUTIME               CPU usage total: 0.611000000 secs, user: 0.590000000 secs, system: 0.021000000 secs, current category="Application"
+3XMTHREADBLOCK     Blocked on: com/acme/cache/CacheManager@0x00000000E00A1B28 Owned by: "WebContainer : 1" (J9VMThread:0x00000000024B5F00, java/lang/Thread:0x00000000E0103E40)
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at com/acme/cache/CacheManager.get(CacheManager.java:55)
+4XESTACKTRACE                at com/acme/web/CatalogServlet.doGet(CatalogServlet.java:29)
+4XESTACKTRACE                at com/ibm/ws/webcontainer/servlet/ServletWrapper.service(ServletWrapper.java:1233)
+4XESTACKTRACE                at com/ibm/ws/util/ThreadPool$Worker.run(ThreadPool.java:1752)
+NULL
+3XMTHREADINFO      "ORB.thread.pool : 0" J9VMThread:0x00000000024C1400, omrthread_t:0x00007F3A2C10CF48, java/lang/Thread:0x00000000E0107170, state:CW, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x52, isDaemon:true)
+3XMTHREADINFO1            (native thread ID:0x4A31, native priority:0x5, native policy:UNKNOWN, vmstate:CW, vm thread flags:0x00000401)
+3XMCPUTIME               CPU usage total: 0.020000000 secs, user: 0.015000000 secs, system: 0.005000000 secs, current category="System-JVM"
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at java/lang/Object.wait(Native Method)
+4XESTACKTRACE                at java/lang/Object.wait(Object.java:502)
+4XESTACKTRACE                at com/ibm/ws/util/BoundedBuffer.waitGet_(BoundedBuffer.java:214)
+4XESTACKTRACE                at com/ibm/ws/util/ThreadPool.getTask(ThreadPool.java:928)
+4XESTACKTRACE                at com/ibm/ws/util/ThreadPool$Worker.run(ThreadPool.java:1752)
+NULL
+3XMTHREADINFO      "Deferrable Alarm : 0" J9VMThread:0x00000000024C0300, omrthread_t:0x00007F3A2C10E058, java/lang/Thread:0x00000000E0108280, state:CW, prio=5
+3XMJAVALTHREAD            (java/lang/Thread getId:0x50, isDaemon:true)
+3XMTHREADINFO1            (native thread ID:0x4A30, native priority:0x5, native policy:UNKNOWN, vmstate:CW, vm thread flags:0x00000401)
+3XMCPUTIME               CPU usage total: 0.030000000 secs, user: 0.025000000 secs, system: 0.005000000 secs, current category="Application"
+3XMTHREADINFO3           Java callstack:
+4XESTACKTRACE                at java/lang/Object.wait(Native Method)
+4XESTACKTRACE                at java/lang/Object.wait(Object.java:502)
+4XESTACKTRACE                at com/ibm/ejs/util/am/_Alarm.run(_Alarm.java:98)
+NULL
+3XMTHREADINFO      "JIT Compilation Thread-000" J9VMThread:0x0000000000148200, omrthread_t:0x00007F3A2C020BF8, java/lang/Thread:0x00000000E0009148, state:CW, prio=10
+3XMJAVALTHREAD            (java/lang/Thread getId:0x2, isDaemon:true)
+3XMTHREADINFO1            (native thread ID:0x303A, native priority:0xB, native policy:UNKNOWN, vmstate:CW, vm thread flags:0x00000081)
+3XMCPUTIME               CPU usage total: 2.100000000 secs, user: 2.000000000 secs, system: 0.100000000 secs, current category="JIT"
+NULL
+0SECTION       CLASSES subcomponent dump routine
+NULL           =================================
+1CLTEXTCLLOS   Classloader summaries
+NULL           ------------------------------------------------------------------------
+0SECTION       Javadump End section
+NULL           ---------------------- END OF DUMP -------------------------------------

@@ -29,6 +29,12 @@ public final class DumpSetLoader {
                         Files.readString(p, StandardCharsets.UTF_8), p.getFileName().toString()));
                 continue;
             }
+            if (JavacoreParser.looksLikeJavacore(head)) {
+                try (BufferedReader r = open(p)) {
+                    series.add(new JavacoreParser().parse(r, p.getFileName().toString()));
+                }
+                continue;
+            }
             try (BufferedReader r = open(p)) {
                 for (ThreadDump d : splitter.split(p.getFileName().toString(), r)) series.add(d);
             }
@@ -50,6 +56,13 @@ public final class DumpSetLoader {
             String name = i < names.size() ? names.get(i) : ("input-" + (i + 1));
             if (JsonDumpParser.looksLikeJsonDump(contents.get(i))) {
                 series.add(new JsonDumpParser().parse(contents.get(i), name));
+                continue;
+            }
+            String head = contents.get(i).substring(0, Math.min(512, contents.get(i).length()));
+            if (JavacoreParser.looksLikeJavacore(head)) {
+                try (BufferedReader r = new BufferedReader(new StringReader(contents.get(i)))) {
+                    series.add(new JavacoreParser().parse(r, name));
+                }
                 continue;
             }
             try (BufferedReader r = new BufferedReader(new StringReader(contents.get(i)))) {
