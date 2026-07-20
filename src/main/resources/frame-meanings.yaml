@@ -44,6 +44,33 @@ meanings:
     frames:
       - weblogic.jdbc.common.internal.ConnectionPool.reserve
       - weblogic.common.resourcepool.ResourcePoolImpl.reserveResource
+  - name: websphere-j2c-reserve
+    category: db-pool-wait
+    activity: waiting for a WebSphere JCA/JDBC connection
+    narrative: The WAS connection pool (J2C) has no free connection; the thread waits in the FreePool.
+    frames:
+      - com.ibm.ws.j2c.poolmanager.FreePool.createOrWaitForConnection
+      - com.ibm.ejs.j2c.FreePool.createOrWaitForConnection
+      - com.ibm.ejs.j2c.PoolManager.reserve
+  - name: weblogic-jta
+    category: db-wait
+    activity: inside WebLogic JTA transaction processing
+    narrative: Committing/rolling back a JTA transaction; waits here usually mean a slow XA resource or a transaction stuck before its timeout.
+    frames:
+      - weblogic.transaction.internal.
+  - name: weblogic-t3-call
+    category: ws-call
+    activity: waiting on a t3/RMI response from another WebLogic server
+    narrative: An outbound t3 call was sent; the thread is blocked until the peer WebLogic server answers.
+    frames:
+      - weblogic.rjvm.ResponseImpl.waitForData
+      - weblogic.rmi.internal.BasicOutboundRequest.sendReceive
+  - name: tomcat-jsp-compile
+    category: file-io
+    activity: compiling a JSP
+    narrative: Jasper is (re)compiling a JSP on the request path; precompile JSPs to avoid this in production.
+    frames:
+      - org.apache.jasper.compiler.
   - name: ibm-mq
     category: mq-wait
     activity: waiting on an IBM MQ operation

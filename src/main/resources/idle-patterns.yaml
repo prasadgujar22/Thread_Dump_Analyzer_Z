@@ -55,9 +55,14 @@ patterns:
       - org.apache.tomcat.util.net.NioEndpoint$Poller.run
       - org.apache.tomcat.util.net.Acceptor.run
       - org.apache.tomcat.util.threads.TaskQueue.take
+      - org.apache.tomcat.util.net.NioBlockingSelector$BlockPoller.run
+      - org.apache.tomcat.util.net.AprEndpoint$Poller.run
       - weblogic.work.ExecuteThread.waitForRequest
       - weblogic.socket.PosixSocketMuxer.processSockets
       - weblogic.socket.EPollSocketMuxer.processSockets
       - weblogic.socket.SocketMuxer.processSockets
+      - weblogic.socket.NIOSocketMuxer.processSockets
       - com.ibm.ws.util.BoundedBuffer.waitGet_
+      - com.ibm.ws.threading.internal.BoundedBuffer.take
+      - com.ibm.ejs.util.am.AlarmManagerThread.run
       - io.undertow.server.protocol.framed.FrameHandler.run
