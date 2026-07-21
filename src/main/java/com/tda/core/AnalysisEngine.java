@@ -309,25 +309,25 @@ public final class AnalysisEngine {
         s.put("timelines", timelines);
 
         // Full states-per-dump table for every matched thread (searchable in the UI).
-        if (series.size() > 1) {
-            List<Object> all = new ArrayList<>();
-            for (String key : index.keys()) {
-                ThreadInfo[] occ = index.occurrences().get(key);
-                List<Object> states = new ArrayList<>();
-                boolean any = false;
-                for (ThreadInfo t : occ) {
-                    if (t != null && t.isVmThread()) { states.add(null); continue; }
-                    states.add(t == null ? null : t.state().name());
-                    any |= t != null;
-                }
-                if (!any) continue;
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("name", index.displayName(key));
-                row.put("states", states);
-                all.add(row);
+        // Emitted for single dumps too - the per-thread state overview must not require
+        // a series (it is simply a one-column table then).
+        List<Object> all = new ArrayList<>();
+        for (String key : index.keys()) {
+            ThreadInfo[] occ = index.occurrences().get(key);
+            List<Object> states = new ArrayList<>();
+            boolean any = false;
+            for (ThreadInfo t : occ) {
+                if (t != null && t.isVmThread()) { states.add(null); continue; }
+                states.add(t == null ? null : t.state().name());
+                any |= t != null;
             }
-            s.put("allTimelines", all);
+            if (!any) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", index.displayName(key));
+            row.put("states", states);
+            all.add(row);
         }
+        s.put("allTimelines", all);
 
         if (baselineDoc != null) {
             s.put("baselineDiff", new Baseline().diff(series, pools, options.topStacks, baselineDoc));
@@ -545,8 +545,13 @@ public final class AnalysisEngine {
                 if (t.carrierTid() != null) row.put("carrier", t.carrierTid());
             }
             if (!t.frames().isEmpty()) {
+                // Lock annotations are part of the displayed stack, so the dedup key must
+                // include them: threads sharing a frame hash but holding/waiting on
+                // different locks must not share one stack entry.
+                List<String> lines = annotatedFrameList(t);
                 String key = Long.toHexString(t.stackHash());
-                stackTable.computeIfAbsent(key, k -> frameList(t));
+                if (!t.locks().isEmpty()) key += "-" + Long.toHexString(lineHash(lines));
+                stackTable.computeIfAbsent(key, k -> lines);
                 row.put("stack", key);
             }
             List<Object> lockRows = new ArrayList<>();
@@ -563,13 +568,71 @@ public final class AnalysisEngine {
         return m;
     }
 
-    private List<String> frameList(ThreadInfo t) {
-        List<String> frames = new ArrayList<>();
-        for (StackFrame f : t.frames()) {
-            if (frames.size() >= options.maxFramesShown) break;
-            frames.add(f.raw());
+    /**
+     * The thread's stack as shown in reports: frames interleaved with their lock
+     * annotations exactly like the original dump ({@code - locked <0x...> (a Foo)},
+     * {@code - waiting to lock ...}), plus a trailing "Locked ownable synchronizers"
+     * block for {@code jstack -l} holds and a "Locked monitors" block for holds whose
+     * frame position is unknown (javacore LOCKS-section ownership).
+     */
+    private List<String> annotatedFrameList(ThreadInfo t) {
+        Map<Integer, List<String>> byFrame = new LinkedHashMap<>();
+        List<String> synchronizers = new ArrayList<>();
+        List<String> unplacedHolds = new ArrayList<>();
+        List<String> unplacedWaits = new ArrayList<>();
+        for (LockRef l : t.locks()) {
+            String cls = l.className() != null ? " (a " + l.className() + ")" : "";
+            String line = switch (l.kind()) {
+                case LOCKED_MONITOR -> "- locked <" + l.address() + ">" + cls;
+                case WAITING_TO_LOCK -> "- waiting to lock <" + l.address() + ">" + cls;
+                case WAITING_ON -> "- waiting on <" + l.address() + ">" + cls;
+                case PARKING_TO_WAIT_FOR -> "- parking to wait for <" + l.address() + ">" + cls;
+                case LOCKED_SYNCHRONIZER -> "- <" + l.address() + ">" + cls;
+                case ELIMINATED -> "- eliminated" + cls;
+            };
+            if (l.kind() == LockRef.Kind.LOCKED_SYNCHRONIZER) {
+                synchronizers.add(line);
+            } else if (l.frameIndex() >= 0) {
+                byFrame.computeIfAbsent(l.frameIndex(), k -> new ArrayList<>()).add(line);
+            } else if (l.isWait()) {
+                unplacedWaits.add(line); // javacore 3XMTHREADBLOCK - belongs at the top frame
+            } else {
+                unplacedHolds.add(line); // javacore LOCKS-section hold, frame unknown
+            }
         }
-        return frames;
+        List<String> lines = new ArrayList<>();
+        int shown = 0;
+        for (int i = 0; i < t.frames().size(); i++) {
+            if (shown >= options.maxFramesShown) break;
+            lines.add(t.frames().get(i).raw());
+            shown++;
+            if (i == 0) for (String w : unplacedWaits) lines.add(w);
+            for (String a : byFrame.getOrDefault(i, List.of())) lines.add(a);
+        }
+        if (!unplacedHolds.isEmpty()) {
+            lines.add("");
+            lines.add("Locked monitors (position in stack unknown):");
+            lines.addAll(unplacedHolds);
+        }
+        if (!synchronizers.isEmpty()) {
+            lines.add("");
+            lines.add("Locked ownable synchronizers:");
+            lines.addAll(synchronizers);
+        }
+        return lines;
+    }
+
+    private static long lineHash(List<String> lines) {
+        long h = 0xcbf29ce484222325L;
+        for (String s : lines) {
+            for (byte b : s.getBytes(java.nio.charset.StandardCharsets.UTF_8)) {
+                h ^= b & 0xff;
+                h *= 0x100000001b3L;
+            }
+            h ^= '\n';
+            h *= 0x100000001b3L;
+        }
+        return h;
     }
 
     private static List<String> cap(List<String> in, int max) {

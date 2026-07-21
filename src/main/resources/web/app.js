@@ -277,13 +277,19 @@ const TDA = (() => {
     });
   }
 
+  // Stack entries interleave real frames with lock annotations ("- locked <0x…>") and
+  // trailing synchronizer blocks; aggregations over frames must skip the annotations.
+  function frameLines(frames) {
+    return (frames || []).filter(f => f && !f.startsWith("- ") && !f.startsWith("Locked "));
+  }
+
   // Flame/icicle of aggregated RUNNABLE stacks for one dump (root = outermost frame).
   function buildFlameTrie(dump) {
     const root = { name: "all RUNNABLE", value: 0, children: new Map(), threads: [] };
     for (const th of dump.threads) {
       if (th.state !== "RUNNABLE" || !th.stack) continue;
-      const frames = dump.stacks[th.stack];
-      if (!frames || !frames.length) continue;
+      const frames = frameLines(dump.stacks[th.stack]);
+      if (!frames.length) continue;
       root.value++;
       if (root.threads.length < 20) root.threads.push(th.name);
       let node = root;
@@ -609,8 +615,9 @@ const TDA = (() => {
       swimlaneChart(root.appendChild(el("div", { class: "card" })), timelines, dumps);
     }
     const allTimelines = (data.series && data.series.allTimelines) || [];
-    if (allTimelines.length && dumps.length > 1) {
-      root.appendChild(el("h2", null, "All threads — state per dump"));
+    if (allTimelines.length) {
+      root.appendChild(el("h2", null,
+          dumps.length > 1 ? "All threads — state per dump" : "All threads — state overview"));
       allStatesTable(root, allTimelines, dumps);
     }
   }
@@ -858,6 +865,35 @@ const TDA = (() => {
     renderDump();
   }
 
+  // Per-dump state distribution donut; slices drill into the browser filtered by state.
+  function stateDonut(container, d) {
+    const entries = STATE_ORDER.filter(s => (d.states || {})[s])
+        .map(s => ({ name: s, value: d.states[s] }));
+    if (!entries.length) {
+      container.appendChild(el("p", { class: "sub" }, "No thread states parsed in this dump."));
+      return;
+    }
+    makeChart(container, 240, () => {
+      const t = chartTheme();
+      return {
+        tooltip: Object.assign(baseTooltip(), {
+          formatter: p => `${stateChip(p.name)} ${p.value} thread(s) · ${p.percent}% · click to browse`
+        }),
+        legend: { orient: "vertical", right: 8, top: "middle",
+                  textStyle: { color: t.textStyle.color, fontSize: 12 },
+                  formatter: n => `${n}  (${(d.states || {})[n] || 0})` },
+        series: [{
+          type: "pie", radius: ["45%", "72%"], center: ["36%", "50%"],
+          data: entries.map(e => ({ ...e, itemStyle: { color: stateColor(e.name) } })),
+          label: { color: t.ink, fontSize: 11.5, formatter: "{b}: {c}" },
+          itemStyle: { borderColor: cssVar("--surface"), borderWidth: 2 }
+        }]
+      };
+    }, p => {
+      if (p.name) drillToThreads({ dump: d.index, state: p.name });
+    });
+  }
+
   function renderDumpDetail(root, d) {
     // deadlocks
     for (const dl of d.deadlocks || []) {
@@ -865,6 +901,11 @@ const TDA = (() => {
           `<span class="sevtag CRITICAL">DEADLOCK</span><b>${dl.threads.length} threads in a cycle</b>` +
           ` <span class="badge">${esc(dl.source)}</span><div class="mono">${dl.threads.map(n => tlink(n, d.index)).join(" → ")}</div>`));
     }
+    // state distribution of this dump (the primary view when only one dump exists)
+    const sd = el("div", { class: "card" },
+        `<h3>Thread states in this dump <span class="sub">(click a slice to browse)</span></h3>`);
+    root.appendChild(sd);
+    stateDonut(sd, d);
     // flame + blocker tree
     const g2 = el("div", { class: "grid2" });
     root.appendChild(g2);
@@ -961,7 +1002,7 @@ const TDA = (() => {
   function callStackTree(root, d) {
     const trie = { count: 0, children: new Map() };
     for (const t of d.threads) {
-      const frames = t.stack ? d.stacks[t.stack] : null;
+      const frames = t.stack ? frameLines(d.stacks[t.stack]) : null;
       if (!frames || !frames.length) continue;
       trie.count++;
       let node = trie;
