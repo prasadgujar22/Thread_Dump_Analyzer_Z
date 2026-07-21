@@ -23,6 +23,9 @@ import java.util.regex.Pattern;
  *   <li>VM/GC/JIT threads without {@code #id} or a Java stack</li>
  *   <li>{@code jstack -l} "Locked ownable synchronizers:" sections</li>
  *   <li>the JVM's own "Found one Java-level deadlock" report</li>
+ *   <li>double-spaced dumps (an extra blank line between every line - a common artifact of
+ *       Windows consoles and log shippers): blank lines never terminate a thread block
+ *       eagerly; blocks close on the next header or the first non-continuation line</li>
  * </ul>
  * Unrecognized lines never abort parsing; they are counted and surfaced as {@link ParseIssue}s.
  */
@@ -57,6 +60,7 @@ public final class HotSpotParser {
     private boolean inDeadlockNames;
     private boolean inDeadlockStacks; // "Java stack information for the threads listed above"
     private boolean tail;             // past "JNI global refs" - ignore the rest quietly
+    private boolean pendingBlank;     // blank seen inside a thread block - close lazily (see accept)
     private List<String> cycle;
     private int unrecognized;
     private String firstUnrecognized;
@@ -71,6 +75,7 @@ public final class HotSpotParser {
         inDeadlockNames = false;
         inDeadlockStacks = false;
         tail = false;
+        pendingBlank = false;
         cycle = null;
         unrecognized = 0;
         firstUnrecognized = null;
@@ -106,6 +111,7 @@ public final class HotSpotParser {
             closeCycle();
             inDeadlockNames = true;
             inDeadlockStacks = false;
+            pendingBlank = false;
             cycle = new ArrayList<>();
             return;
         }
@@ -117,14 +123,17 @@ public final class HotSpotParser {
             }
             if (trimmed.matches("Found \\d+ deadlock(s)?\\.?")) {
                 closeCycle();
+                inDeadlockNames = false;
                 inDeadlockStacks = false;
                 return;
             }
             if (inDeadlockNames) {
                 Matcher dn = DEADLOCK_NAME.matcher(trimmed);
                 if (dn.matches()) { cycle.add(dn.group("name")); return; }
-                if (trimmed.isEmpty()) { closeCycle(); inDeadlockNames = false; return; }
-                return; // "waiting to lock monitor ..." / "which is held by ..." detail lines
+                // Blank lines do NOT close the names section: double-spaced dumps put one
+                // between every name. The section closes on "Java stack information",
+                // "Found N deadlocks", a new report, or end().
+                return; // detail lines ("waiting to lock monitor ...", "which is held by ...")
             }
             return; // repeated stacks inside the deadlock report - already parsed above
         }
@@ -134,6 +143,7 @@ public final class HotSpotParser {
         if (h != null && h.matches()) {
             finishCurrent();
             tail = false;
+            pendingBlank = false;
             current = parseHeader(h.group("name"), h.group("attrs"));
             current.appendRaw(line);
             return;
@@ -144,6 +154,7 @@ public final class HotSpotParser {
         // ---- state line ----
         Matcher st = STATE_LINE.matcher(line);
         if (st.matches() && current != null) {
+            pendingBlank = false;
             current.setStateDetail(st.group("state").trim());
             current.setState(ThreadState.parse(st.group("state")));
             current.appendRaw(line);
@@ -153,6 +164,7 @@ public final class HotSpotParser {
         // ---- synchronizers section (follows the blank line after a thread's stack) ----
         if (trimmed.startsWith("Locked ownable synchronizers")) {
             inSynchronizers = true;
+            pendingBlank = false;
             dump.markSynchronizerSection();
             return;
         }
@@ -160,6 +172,7 @@ public final class HotSpotParser {
             ThreadInfo owner = current != null ? current : lastThread;
             Matcher se = SYNC_ENTRY.matcher(line);
             if (se.matches()) {
+                pendingBlank = false;
                 if (owner != null) {
                     owner.locks().add(new LockRef(LockRef.Kind.LOCKED_SYNCHRONIZER,
                             se.group("addr"), se.group("cls"), -1));
@@ -167,8 +180,9 @@ public final class HotSpotParser {
                 }
                 return;
             }
+            if (trimmed.isEmpty()) { pendingBlank = true; return; } // double-spaced sections
             inSynchronizers = false;
-            if (trimmed.equals("- None") || trimmed.isEmpty()) return;
+            if (trimmed.equals("- None")) return;
             // fall through: some other line ended the section
         }
 
@@ -176,6 +190,7 @@ public final class HotSpotParser {
             // ---- stack frame ----
             StackFrame f = StackFrame.parse(line);
             if (f != null) {
+                pendingBlank = false;
                 current.frames().add(f);
                 current.appendRaw(line);
                 return;
@@ -183,6 +198,7 @@ public final class HotSpotParser {
             // ---- lock annotations ----
             Matcher lk = LOCK_LINE.matcher(line);
             if (lk.matches()) {
+                pendingBlank = false;
                 String verb = lk.group("verb");
                 String addr = lk.group("addr");
                 if (addr.startsWith("0x")) {
@@ -200,15 +216,25 @@ public final class HotSpotParser {
             }
             Matcher el = ELIMINATED_LINE.matcher(line);
             if (el.matches()) {
+                pendingBlank = false;
                 current.locks().add(new LockRef(LockRef.Kind.ELIMINATED, null, el.group("cls"),
                         current.frames().size() - 1));
                 current.appendRaw(line);
                 return;
             }
-            // ---- "No compile task" etc. inside a block, or the blank line ending it ----
+            // A blank line no longer closes the thread immediately - double-spaced dumps
+            // (console/log pipelines that add an extra newline between every line) put one
+            // between the header, the state line, and every frame. The block is closed
+            // lazily: by the next thread header, or by the first NON-continuation line
+            // that follows a blank (so interleaved log lines still cannot pollute stacks).
             if (trimmed.isEmpty()) {
-                finishCurrent();
+                pendingBlank = true;
                 return;
+            }
+            if (pendingBlank) {
+                finishCurrent();
+                pendingBlank = false;
+                // fall through: classify this line via the tail/skip/unrecognized rules
             }
         }
 
